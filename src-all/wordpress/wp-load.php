@@ -39,11 +39,13 @@ if ( file_exists( ABSPATH . 'wp-config.php') ) {
 	// A config file doesn't exist
 
 	// Set a path for the link to the installer
-	if (strpos($_SERVER['PHP_SELF'], 'wp-admin') !== false) $path = '';
-	else $path = 'wp-admin/';
+	if ( strpos($_SERVER['PHP_SELF'], 'wp-admin') !== false )
+		$path = '';
+	else
+		$path = 'wp-admin/';
 
 	// Die with an error message
-	require_once( ABSPATH . '/wp-includes/classes.php' );
+	require_once( ABSPATH . '/wp-includes/class-wp-error.php' );
 	require_once( ABSPATH . '/wp-includes/functions.php' );
 	require_once( ABSPATH . '/wp-includes/plugin.php' );
 	$text_direction = /*WP_I18N_TEXT_DIRECTION*/"ltr"/*/WP_I18N_TEXT_DIRECTION*/;

@@ -173,7 +173,7 @@ div.postbox div.inside {
 
 #dashboard_right_now .versions {
 	padding: 6px 10px 12px;
-	clear: left;
+	clear: both;
 }
 
 #dashboard_right_now .versions .b {
@@ -275,6 +275,14 @@ div.postbox div.inside {
 
 #dashboard_quick_press h4 label {
 	margin-right: 10px;
+}
+
+#dashboard_quick_press {
+	min-height: 200px;
+}
+
+#dashboard_quick_press.closed {
+	min-height: 0;
 }
 
 #dashboard_quick_press .input-text-wrap,

@@ -201,10 +201,11 @@ function load_image_to_edit($post_id, $mime_type, $size = 'full') {
 	$filepath = get_attached_file($post_id);
 
 	if ( $filepath && file_exists($filepath) ) {
-		if ( 'full' != $size && ( $data = image_get_intermediate_size($post_id, $size) ) )
-			$filepath = path_join( dirname($filepath), $data['file'] );
+		if ( 'full' != $size && ( $data = image_get_intermediate_size($post_id, $size) ) ) {
+			$filepath = apply_filters('load_image_to_edit_filesystempath', path_join( dirname($filepath), $data['file'] ), $post_id, $size);
+		}
 	} elseif ( WP_Http_Fopen::test() ) {
-		$filepath = wp_get_attachment_url($post_id);
+		$filepath = apply_filters('load_image_to_edit_attachmenturl', wp_get_attachment_url($post_id) , $post_id, $size);
 	}
 
 	$filepath = apply_filters('load_image_to_edit_path', $filepath, $post_id, $size);
@@ -421,7 +422,7 @@ function wp_restore_image($post_id) {
 	$file = get_attached_file($post_id);
 	$backup_sizes = get_post_meta( $post_id, '_wp_attachment_backup_sizes', true );
 	$restored = false;
-	$msg = '';
+	$msg = new stdClass;
 
 	if ( !is_array($backup_sizes) ) {
 		$msg->error = __('Cannot load image metadata.');
@@ -492,7 +493,7 @@ function wp_restore_image($post_id) {
 }
 
 function wp_save_image($post_id) {
-	$return = '';
+	$return = new stdClass;
 	$success = $delete = $scaled = $nocrop = false;
 	$post = get_post($post_id);
 	@ini_set('memory_limit', '256M');

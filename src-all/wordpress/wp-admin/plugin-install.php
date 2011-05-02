@@ -5,6 +5,9 @@
  * @package WordPress
  * @subpackage Administration
  */
+// TODO route this pages via a specific iframe handler instead of the do_action below
+if ( !defined( 'IFRAME_REQUEST' ) && isset( $_GET['tab'] ) && ( 'plugin-information' == $_GET['tab'] ) )
+	define( 'IFRAME_REQUEST', true );
 
 /** WordPress Administration Bootstrap */
 require_once('./admin.php');
@@ -12,36 +15,22 @@ require_once('./admin.php');
 if ( ! current_user_can('install_plugins') )
 	wp_die(__('You do not have sufficient permissions to install plugins on this site.'));
 
-include(ABSPATH . 'wp-admin/includes/plugin-install.php');
+if ( is_multisite() && ! is_network_admin() ) {
+	wp_redirect( network_admin_url( 'plugin-install.php' ) );
+	exit();
+}
+
+$wp_list_table = _get_list_table('WP_Plugin_Install_List_Table');
+$pagenum = $wp_list_table->get_pagenum();
+$wp_list_table->prepare_items();
+$total_pages = $wp_list_table->get_pagination_arg( 'total_pages' );
+if ( $pagenum > $total_pages && $total_pages > 0 ) {
+	wp_redirect( add_query_arg( 'paged', $total_pages ) );
+	exit;
+}
 
 $title = __('Install Plugins');
 $parent_file = 'plugins.php';
-
-wp_reset_vars( array('tab', 'paged') );
-
-//These are the tabs which are shown on the page,
-$tabs = array();
-$tabs['dashboard'] = __('Search');
-if ( 'search' == $tab )
-	$tabs['search']	= __('Search Results');
-$tabs['upload'] = __('Upload');
-$tabs['featured'] = _x('Featured','Plugin Installer');
-$tabs['popular']  = _x('Popular','Plugin Installer');
-$tabs['new']      = _x('Newest','Plugin Installer');
-$tabs['updated']  = _x('Recently Updated','Plugin Installer');
-
-$nonmenu_tabs = array('plugin-information'); //Valid actions to perform which do not have a Menu item.
-
-$tabs = apply_filters('install_plugins_tabs', $tabs );
-$nonmenu_tabs = apply_filters('install_plugins_nonmenu_tabs', $nonmenu_tabs);
-
-//If a non-valid menu tab has been selected, And its not a non-menu action.
-if ( empty($tab) || ( ! isset($tabs[ $tab ]) && ! in_array($tab, (array)$nonmenu_tabs) ) ) {
-	$tab_actions = array_keys($tabs);
-	$tab = $tab_actions[0];
-}
-if ( empty($paged) )
-	$paged = 1;
 
 wp_enqueue_style( 'plugin-install' );
 wp_enqueue_script( 'plugin-install' );
@@ -62,25 +51,17 @@ add_contextual_help($current_screen,
 	'<p>' . __('<a href="http://wordpress.org/support/" target="_blank">Support Forums</a>') . '</p>'
 );
 
-include('./admin-header.php');
+include(ABSPATH . 'wp-admin/admin-header.php');
 ?>
 <div class="wrap">
 <?php screen_icon(); ?>
 <h2><?php echo esc_html( $title ); ?></h2>
 
-	<ul class="subsubsub">
-<?php
-$display_tabs = array();
-foreach ( (array)$tabs as $action => $text ) {
-	$sep = ( end($tabs) != $text ) ? ' | ' : '';
-	$class = ( $action == $tab ) ? ' class="current"' : '';
-	$href = admin_url('plugin-install.php?tab=' . $action);
-	echo "\t\t<li><a href='$href'$class>$text</a>$sep</li>\n";
-}
-?>
-	</ul>
-	<br class="clear" />
-	<?php do_action('install_plugins_' . $tab, $paged); ?>
+<?php $wp_list_table->views(); ?>
+
+<br class="clear" />
+<?php do_action('install_plugins_' . $tab, $paged); ?>
 </div>
 <?php
-include('./admin-footer.php');
+include(ABSPATH . 'wp-admin/admin-footer.php');
+

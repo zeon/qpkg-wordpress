@@ -387,7 +387,7 @@ EOD;
 	 * @since 2.2.0
 	 */
 	function create_post() {
-		global $blog_id, $user_ID;
+		global $user_ID;
 		$this->get_accepted_content_type($this->atom_content_types);
 
 		$parser = new AtomParser();
@@ -419,7 +419,7 @@ EOD;
 		if ( !current_user_can($cap) )
 			$this->auth_required(__('Sorry, you do not have the right to edit/publish new posts.'));
 
-		$blog_ID = (int ) $blog_id;
+		$blog_ID = get_current_blog_id();
 		$post_status = ($publish) ? 'publish' : 'draft';
 		$post_author = (int) $user_ID;
 		$post_title = $entry->title[1];
@@ -712,7 +712,7 @@ EOD;
 		$filetype = wp_check_filetype($location);
 
 		if ( !isset($location) || 'attachment' != $entry['post_type'] || empty($filetype['ext']) )
-			$this->internal_error(__('Error ocurred while accessing post metadata for file location.'));
+			$this->internal_error(__('Error occurred while accessing post metadata for file location.'));
 
 		// delete file
 		@unlink($location);
@@ -749,7 +749,7 @@ EOD;
 		$filetype = wp_check_filetype($location);
 
 		if ( !isset($location) || 'attachment' != $entry['post_type'] || empty($filetype['ext']) )
-			$this->internal_error(__('Error ocurred while accessing post metadata for file location.'));
+			$this->internal_error(__('Error occurred while accessing post metadata for file location.'));
 
 		status_header('200');
 		header('Content-Type: ' . $entry['post_mime_type']);
@@ -801,7 +801,7 @@ EOD;
 		$location = "{$upload_dir['basedir']}/{$location}";
 
 		if (!isset($location) || 'attachment' != $entry['post_type'] || empty($filetype['ext']))
-			$this->internal_error(__('Error ocurred while accessing post metadata for file location.'));
+			$this->internal_error(__('Error occurred while accessing post metadata for file location.'));
 
 		$fp = fopen("php://input", "rb");
 		$localfp = fopen($location, "w+");

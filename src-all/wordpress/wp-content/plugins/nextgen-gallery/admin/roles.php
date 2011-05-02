@@ -26,7 +26,7 @@ if ( isset($_POST['update_cap']) ) {
 	<div class="wrap">
     <?php screen_icon( 'nextgen-gallery' ); ?>    
 	<h2><?php _e('Roles / capabilities', 'nggallery') ;?></h2>
-	<p><?php _e('Select the lowest role which should be able to access the follow capabilities. NextGEN Gallery supports the standard roles from WordPress.', 'nggallery') ?> <br />
+	<p><?php _e('Select the lowest role which should be able to access the following capabilities. NextGEN Gallery supports the standard roles from WordPress.', 'nggallery') ?> <br />
 	   <?php _e('For a more flexible user management you can use the', 'nggallery') ?> <a href="http://wordpress.org/extend/plugins/capsman/" target="_blank">Capability Manager</a>.</p>
 	<form name="addroles" id="addroles" method="POST" accept-charset="utf-8" >
 		<?php wp_nonce_field('ngg_addroles') ?>

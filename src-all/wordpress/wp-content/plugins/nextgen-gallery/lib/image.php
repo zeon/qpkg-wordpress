@@ -72,6 +72,7 @@ class nggImage{
 		$this->imageHTML	= $this->get_href_link();
 		$this->thumbHTML	= $this->get_href_thumb_link();
 		
+		do_action_ref_array('ngg_get_image', array(&$this));
 		wp_cache_add($this->pid, $this, 'ngg_image');
 		
 		// Get tags only if necessary

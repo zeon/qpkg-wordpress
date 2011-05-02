@@ -17,10 +17,9 @@
  * @param int $post_id Optional. Post ID.
  * @return bool Whether post has an image attached.
  */
-function has_post_thumbnail( $post_id = NULL ) {
-	global $id;
-	$post_id = ( NULL === $post_id ) ? $id : $post_id;
-	return !! get_post_thumbnail_id( $post_id );
+function has_post_thumbnail( $post_id = null ) {
+	$post_id = ( null === $post_id ) ? get_the_ID() : $post_id;
+	return (bool) get_post_thumbnail_id( $post_id );
 }
 
 /**
@@ -31,9 +30,8 @@ function has_post_thumbnail( $post_id = NULL ) {
  * @param int $post_id Optional. Post ID.
  * @return int
  */
-function get_post_thumbnail_id( $post_id = NULL ) {
-	global $id;
-	$post_id = ( NULL === $post_id ) ? $id : $post_id;
+function get_post_thumbnail_id( $post_id = null ) {
+	$post_id = ( null === $post_id ) ? get_the_ID() : $post_id;
 	return get_post_meta( $post_id, '_thumbnail_id', true );
 }
 
@@ -46,7 +44,7 @@ function get_post_thumbnail_id( $post_id = NULL ) {
  * @param string|array $attr Optional. Query string or array of attributes.
  */
 function the_post_thumbnail( $size = 'post-thumbnail', $attr = '' ) {
-	echo get_the_post_thumbnail( NULL, $size, $attr );
+	echo get_the_post_thumbnail( null, $size, $attr );
 }
 
 /**
@@ -57,10 +55,9 @@ function the_post_thumbnail( $size = 'post-thumbnail', $attr = '' ) {
  * @param int $post_id Optional. Post ID.
  * @param string $size Optional. Image size.  Defaults to 'thumbnail'.
  * @param string|array $attr Optional. Query string or array of attributes.
-  */
-function get_the_post_thumbnail( $post_id = NULL, $size = 'post-thumbnail', $attr = '' ) {
-	global $id;
-	$post_id = ( NULL === $post_id ) ? $id : $post_id;
+ */
+function get_the_post_thumbnail( $post_id = null, $size = 'post-thumbnail', $attr = '' ) {
+	$post_id = ( null === $post_id ) ? get_the_ID() : $post_id;
 	$post_thumbnail_id = get_post_thumbnail_id( $post_id );
 	$size = apply_filters( 'post_thumbnail_size', $size );
 	if ( $post_thumbnail_id ) {

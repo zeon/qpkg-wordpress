@@ -207,7 +207,7 @@ wpList = {
 		element = $('#' + s.element);
 		isClass = element.toggleClass(s.dimClass).is('.' + s.dimClass);
 		color = wpList.getColor( element );
-		element.toggleClass( s.dimClass )
+		element.toggleClass( s.dimClass );
 		dimColor = isClass ? s.dimAddColor : s.dimDelColor;
 		if ( 'none' != dimColor ) {
 			element
@@ -259,11 +259,20 @@ wpList = {
 		e = $(e);
 
 		var list = $(this), old = false, _s = { pos: 0, id: 0, oldId: null }, ba, ref, color;
-		if ( 'string' == typeof s ) { s = { what: s }; }
+
+		if ( 'string' == typeof s )
+			s = { what: s };
+
 		s = $.extend(_s, this.wpList.settings, s);
-		if ( !e.size() || !s.what ) { return false; }
-		if ( s.oldId ) { old = $('#' + s.what + '-' + s.oldId); }
-		if ( s.id && ( s.id != s.oldId || !old || !old.size() ) ) { $('#' + s.what + '-' + s.id).remove(); }
+
+		if ( !e.size() || !s.what )
+			return false;
+
+		if ( s.oldId )
+			old = $('#' + s.what + '-' + s.oldId);
+
+		if ( s.id && ( s.id != s.oldId || !old || !old.size() ) )
+			$('#' + s.what + '-' + s.id).remove();
 
 		if ( old && old.size() ) {
 			old.before(e);
@@ -312,12 +321,24 @@ wpList = {
 	},
 
 	process: function(el) {
-		var list = this;
-		$("[class^=add:" + list.id + ":]", el || null)
-			.filter('form').submit( function() { return list.wpList.add(this); } ).end()
-			.not('form').click( function() { return list.wpList.add(this); } );
-		$("[class^=delete:" + list.id + ":]", el || null).click( function() { return list.wpList.del(this); } );
-		$("[class^=dim:" + list.id + ":]", el || null).click( function() { return list.wpList.dim(this); } );
+		var list = this,
+			$el = $(el || document);
+
+		$el.delegate( "form[class^=add:" + list.id + ":]", 'submit', function(){
+			return list.wpList.add(this);
+		});
+
+		$el.delegate( "[class^=add:" + list.id + ":]:not(form)", 'click', function(){
+			return list.wpList.add(this);
+		});
+
+		$el.delegate( "[class^=delete:" + list.id + ":]", 'click', function(){
+			return list.wpList.del(this);
+		});
+
+		$el.delegate( "[class^=dim:" + list.id + ":]", 'click', function(){
+			return list.wpList.dim(this);
+		});
 	},
 
 	recolor: function() {

@@ -7,11 +7,10 @@ if(preg_match('#' . basename(__FILE__) . '#', $_SERVER['PHP_SELF'])) { die('You 
 	if ( !is_super_admin() )
  		die('You are not allowed to call this page.');
 
+    $messagetext = '';
+
 	// get the options
 	$ngg_options = get_site_option('ngg_options');
-	
-	// same as $_SERVER['REQUEST_URI'], but should work under IIS 6.0
-	$filepath    = site_url( 'wp-admin/ms-admin.php?page=' . $_GET['page'], 'admin' );
 
 	if ( isset($_POST['updateoption']) ) {	
 		check_admin_referer('ngg_wpmu_settings');
@@ -27,25 +26,50 @@ if(preg_match('#' . basename(__FILE__) . '#', $_SERVER['PHP_SELF'])) { die('You 
 			}
 		}
 
+        // the path should always end with a slash	
+        $ngg_options['gallerypath']    = trailingslashit($ngg_options['gallerypath']);
 		update_site_option('ngg_options', $ngg_options);
+        
 	 	$messagetext = __('Update successfully','nggallery');
 	}		
+
+    // Show donation message only one time.
+    if (isset ( $_GET['hideSupportInfo']) ) {
+    	$ngg_options['hideSupportInfo'] = true;
+    	update_site_option('ngg_options', $ngg_options);			
+    }
+    
+    if( !isset ( $ngg_options['hideSupportInfo']) ||  $ngg_options['hideSupportInfo'] !== true ) {
+    	?>	
+    		<div id="donator_message">
+    			<p><?php echo str_replace('%s', 'http://alexrabe.de/donation', __('Thanks for using this plugin, NextGEN Gallery is initially developed for self hosted blogs. A multisite setup is possible, but cannot currently fully supported, as it can have several special condition ( i.e. Domain mapping).<br /> If you would like to support the further development, please consider a <strong><a href="%s">donation</a></strong>! If you still need some help, please post your questions <a href="http://wordpress.org/tags/nextgen-gallery?forum_id=10">here</a> .', 'nggallery')); ?>
+    				<span>
+    					<a href="<?php echo add_query_arg( array( 'hideSupportInfo' => 'true') ); ?>" >
+    						<small><?php _e('OK, hide this message now !', 'nggallery'); ?></small>
+    					</a>
+    				<span>
+    			</p>
+    		</div>
+    	<?php
+    }
 	
 	// message windows
-	if(!empty($messagetext)) { echo '<!-- Last Action --><div id="message" class="updated fade"><p>'.$messagetext.'</p></div>'; }
+	if( !empty($messagetext) ) { echo '<!-- Last Action --><div id="message" class="updated fade"><p>'.$messagetext.'</p></div>'; }
 	
 	?>
 
 	<div class="wrap">
-		<h2><?php _e('General WordPress MU Settings','nggallery'); ?></h2>
+		<h2><?php _e('Network Options','nggallery'); ?></h2>
 		<form name="generaloptions" method="post">
 		<?php wp_nonce_field('ngg_wpmu_settings') ?>
-		<input type="hidden" name="page_options" value="gallerypath,wpmuQuotaCheck,wpmuZipUpload,wpmuStyle,wpmuRoles,wpmuCSSfile" />
+		<input type="hidden" name="page_options" value="gallerypath,wpmuQuotaCheck,wpmuZipUpload,wpmuImportFolder,wpmuStyle,wpmuRoles,wpmuCSSfile" />
 			<table class="form-table">
 				<tr valign="top">
 					<th align="left"><?php _e('Gallery path','nggallery') ?></th>
-					<td><input type="text" size="50" name="gallerypath" value="<?php echo $ngg_options['gallerypath']; ?>" title="TEST" /><br />
-					<?php _e('This is the default path for all blogs. With the placeholder %BLOG_ID% you can organize the folder structure better. The path must end with a /.','nggallery') ?></td>
+					<td><input type="text" size="50" name="gallerypath" value="<?php echo $ngg_options['gallerypath']; ?>" /><br />
+					<?php _e('This is the default path for all blogs. With the placeholder %BLOG_ID% you can organize the folder structure better.','nggallery') ?>
+                    <?php echo str_replace('%s', '<code>wp-content/blogs.dir/%BLOG_ID%/files/</code>', __('The default setting should be %s', 'nggallery')); ?>
+                    </td>
 				</tr>
 				<tr>
 					<th valign="top"><?php _e('Enable upload quota check','nggallery') ?>:</th>
@@ -57,6 +81,12 @@ if(preg_match('#' . basename(__FILE__) . '#', $_SERVER['PHP_SELF'])) { die('You 
 					<th valign="top"><?php _e('Enable zip upload option','nggallery') ?>:</th>
 					<td><input name="wpmuZipUpload" type="checkbox" value="1" <?php checked('1', $ngg_options['wpmuZipUpload']); ?> />
 					<?php _e('Allow users to upload zip folders.','nggallery') ?>
+					</td>
+				</tr>
+				<tr>
+					<th valign="top"><?php _e('Enable import function','nggallery') ?>:</th>
+					<td><input name="wpmuImportFolder" type="checkbox" value="1" <?php checked('1', $ngg_options['wpmuImportFolder']); ?> />
+					<?php _e('Allow users to import images folders from the server.','nggallery') ?>
 					</td>
 				</tr>
 				<tr>

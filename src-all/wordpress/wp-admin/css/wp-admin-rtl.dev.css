@@ -13,7 +13,17 @@ td.available-theme {
 }
 /* 200 - 500
 =================================== */
+#doaction,
+#doaction2,
+#post-query-submit {
+	margin-right: 0;
+	margin-left: 8px;
+}
 #save-post {
+	float: right;
+}
+#minor-publishing .ajax-loading {
+	padding: 3px 4px 0 0;
 	float: right;
 }
 .preview {
@@ -68,6 +78,13 @@ td.available-theme {
 * html #template div {
 	margin-left: 0;
 }
+
+.list-ajax-loading {
+	float: left;
+	margin-right: 0;
+	margin-left: 9px;
+}
+
 #your-profile legend {
 	font-family: Tahoma, Arial, sans-serif;
 }
@@ -85,7 +102,12 @@ td.available-theme {
 	margin-left: 10px;
 }
 .tablenav a.button-secondary {
-	margin: 8px 0 0 8px;
+	margin-right: 0;
+	margin-left: 8px;
+}
+.tablenav .actions {
+	padding-right: 0;
+	padding-left: 8px;
 }
 .tablenav .tablenav-pages {
 	float: left;
@@ -94,6 +116,7 @@ td.available-theme {
 	margin-right: 0;
 	margin-left: 10px;
 	font-family: Tahoma, Arial, sans-serif;
+	font-style: normal;
 }
 #postcustomstuff table input,
 #postcustomstuff table select,
@@ -245,6 +268,18 @@ td.available-theme {
 .description, .form-wrap p {
 	font-family: Tahoma, Arial, sans-serif;
 }
+.sorting-indicator {
+	margin-left: 0;
+	margin-right: 7px;
+}
+th.sortable a span,
+th.sorted a span {
+	float: right;
+}
+.fixed .column-comments a {
+	float: right;
+}
+
 /* 1500 - 1800
 =================================== */
 .autosave-info {
@@ -419,9 +454,13 @@ td.action-links, th.action-links {
 	font-family: Tahoma, Arial, sans-serif;
 	margin: 0 0 0 6px;
 }
+#contextual-help-wrap li {
+	margin-left: 0;
+	margin-right: 18px;
+}
 #screen-meta a.show-settings {
 	padding: 0 6px 0 16px;
-	background-position: left bottom;
+	background-position: left top;
 }
 .metabox-prefs label {
 	padding-right: 0;
@@ -438,6 +477,13 @@ td.action-links, th.action-links {
 #replysubmit img.waiting,
 .inline-edit-save img.waiting {
 	float: left;
+}
+.trash-undo-inside,
+.spam-undo-inside,
+.spam-undo-inside .avatar,
+.trash-undo-inside .avatar {
+	margin-right: 0;
+	margin-left: 8px;
 }
 /* 2500 - 2700
 =================================== */
@@ -586,11 +632,24 @@ ol {
 	padding: 0 5px 0 0 ;
 }
 
+.media-item .error-div a.dismiss,
+.describe-toggle-on,
+.describe-toggle-off {
+	float: left;
+	margin-right: 0;
+	margin-left: 20px;
+}
+
 .describe-toggle-on,
 .describe-toggle-off {
 	float: left;
 	margin-left: 20px;
 	margin-right: 0;
+}
+
+.media-item .error-div {
+	padding-left: 0;
+	padding-right: 10px;
 }
 
 .media-item .pinkynail {
@@ -601,15 +660,6 @@ ol {
 	text-align: left;
 	margin-left: 5px;
 	margin-right: 0;
-}
-
-button.dismiss {
-	right: auto;
-	left: 5px;
-}
-
-.file-error {
-	float: right;
 }
 
 .bar {
@@ -649,12 +699,18 @@ button.dismiss {
 }
 
 /* Custom Header */
-table#available-headers td {
-	padding: 0 0 10px 20px;
+.appearance_page_custom-header #available-headers .default-header {
+	float: right;
+	margin: 0 0 20px 20px;
 }
-table#available-headers label input {
+.appearance_page_custom-header #available-headers label input {
 	margin-right: 0;
-	margin-left: 8px;
+	margin-left: 10px;
+}
+
+#custom-background label {
+	padding-right: 0;
+	padding-left: 15px;
 }
 
 /* ltr

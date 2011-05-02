@@ -3,8 +3,8 @@
  * gd.thumbnail.inc.php
  * 
  * @author 		Ian Selby (ian@gen-x-design.com)
- * @copyright 	Copyright 2006-2009
- * @version 	1.2.0 (based on 1.1.3)
+ * @copyright 	Copyright 2006-2011
+ * @version 	1.2.1 (based on 1.1.3)
  * @modded      by Alex Rabe
  * 
  */
@@ -141,18 +141,21 @@ class ngg_Thumbnail {
             $this->errmsg = 'File is not readable';
             $this->error = true;
         }
-
+        
         //if there are no errors, determine the file format
         if($this->error == false) {
-            //check if gif
-            if(stristr(strtolower($this->fileName),'.gif')) $this->format = 'GIF';
-            //check if jpg
-            elseif(stristr(strtolower($this->fileName),'.jpg') || stristr(strtolower($this->fileName),'.jpeg')) $this->format = 'JPG';
-            //check if png
-            elseif(stristr(strtolower($this->fileName),'.png')) $this->format = 'PNG';
-            //unknown file format
-            else {
-                $this->errmsg = 'Unknown file format';
+    		$data = @getimagesize($this->fileName);
+    		if (isset($data) && is_array($data)) {
+    		  $extensions = array('1' => 'GIF', '2' => 'JPG', '3' => 'PNG');
+    		  $extension = array_key_exists($data[2], $extensions) ?  $extensions[$data[2]] : '';
+                if($extension) {
+                    $this->format = $extension;
+                } else {
+                    $this->errmsg = 'Unknown file format';
+                    $this->error = true;
+                }
+            } else {
+                $this->errmsg = 'File is not an image';
                 $this->error = true;
             }
         }
@@ -624,6 +627,10 @@ class ngg_Thumbnail {
 	    	$this->errmsg = 'Create Image failed. Check safe mode settings';
 	    	return false;
 	    }
+        
+        if( function_exists('do_action') )
+	       do_action('ngg_ajax_image_save', $name);
+
 	    return true;
 	}
 

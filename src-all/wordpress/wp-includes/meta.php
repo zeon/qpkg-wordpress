@@ -44,6 +44,11 @@ function add_metadata($meta_type, $object_id, $meta_key, $meta_value, $unique = 
 
 	// expected_slashed ($meta_key)
 	$meta_key = stripslashes($meta_key);
+	$meta_value = stripslashes_deep($meta_value);
+
+	$check = apply_filters( "add_{$meta_type}_metadata", null, $object_id, $meta_key, $meta_value, $unique );
+	if ( null !== $check )
+		return (bool) $check;
 
 	if ( $unique && $wpdb->get_var( $wpdb->prepare(
 		"SELECT COUNT(*) FROM $table WHERE meta_key = %s AND $column = %d",
@@ -51,7 +56,9 @@ function add_metadata($meta_type, $object_id, $meta_key, $meta_value, $unique = 
 		return false;
 
 	$_meta_value = $meta_value;
-	$meta_value = maybe_serialize( stripslashes_deep($meta_value) );
+	$meta_value = maybe_serialize( $meta_value );
+
+	do_action( "add_{$meta_type}_meta", $object_id, $meta_key, $_meta_value );
 
 	$wpdb->insert( $table, array(
 		$column => $object_id,
@@ -105,6 +112,11 @@ function update_metadata($meta_type, $object_id, $meta_key, $meta_value, $prev_v
 
 	// expected_slashed ($meta_key)
 	$meta_key = stripslashes($meta_key);
+	$meta_value = stripslashes_deep($meta_value);
+
+	$check = apply_filters( "update_{$meta_type}_metadata", null, $object_id, $meta_key, $meta_value, $prev_value );
+	if ( null !== $check )
+		return (bool) $check;
 
 	if ( ! $meta_id = $wpdb->get_var( $wpdb->prepare( "SELECT $id_column FROM $table WHERE meta_key = %s AND $column = %d", $meta_key, $object_id ) ) )
 		return add_metadata($meta_type, $object_id, $meta_key, $meta_value);
@@ -119,7 +131,7 @@ function update_metadata($meta_type, $object_id, $meta_key, $meta_value, $prev_v
 	}
 
 	$_meta_value = $meta_value;
-	$meta_value = maybe_serialize( stripslashes_deep($meta_value) );
+	$meta_value = maybe_serialize( $meta_value );
 
 	$data  = compact( 'meta_value' );
 	$where = array( $column => $object_id, 'meta_key' => $meta_key );
@@ -176,7 +188,14 @@ function delete_metadata($meta_type, $object_id, $meta_key, $meta_value = '', $d
 	$id_column = 'user' == $meta_type ? 'umeta_id' : 'meta_id';
 	// expected_slashed ($meta_key)
 	$meta_key = stripslashes($meta_key);
-	$meta_value = maybe_serialize( stripslashes_deep($meta_value) );
+	$meta_value = stripslashes_deep($meta_value);
+
+	$check = apply_filters( "delete_{$meta_type}_metadata", null, $object_id, $meta_key, $meta_value, $delete_all );
+	if ( null !== $check )
+		return (bool) $check;
+
+	$_meta_value = $meta_value;
+	$meta_value = maybe_serialize( $meta_value );
 
 	$query = $wpdb->prepare( "SELECT $id_column FROM $table WHERE meta_key = %s", $meta_key );
 
@@ -190,6 +209,8 @@ function delete_metadata($meta_type, $object_id, $meta_key, $meta_value = '', $d
 	if ( !count( $meta_ids ) )
 		return false;
 
+	do_action( "delete_{$meta_type}_meta", $meta_ids, $object_id, $meta_key, $_meta_value );
+
 	$query = "DELETE FROM $table WHERE $id_column IN( " . implode( ',', $meta_ids ) . " )";
 
 	$count = $wpdb->query($query);
@@ -202,7 +223,7 @@ function delete_metadata($meta_type, $object_id, $meta_key, $meta_value = '', $d
 	if ( 'user' == $meta_type )
 		clean_user_cache($object_id);
 
-	do_action( "deleted_{$meta_type}_meta", $meta_ids, $object_id, $meta_key, $meta_value );
+	do_action( "deleted_{$meta_type}_meta", $meta_ids, $object_id, $meta_key, $_meta_value );
 
 	return true;
 }
@@ -227,14 +248,22 @@ function get_metadata($meta_type, $object_id, $meta_key = '', $single = false) {
 	if ( !$object_id = absint($object_id) )
 		return false;
 
+	$check = apply_filters( "get_{$meta_type}_metadata", null, $object_id, $meta_key, $single );
+	if ( null !== $check ) {
+		if ( $single && is_array( $check ) )
+			return $check[0];
+		else
+			return $check;
+	}
+
 	$meta_cache = wp_cache_get($object_id, $meta_type . '_meta');
 
 	if ( !$meta_cache ) {
-		update_meta_cache($meta_type, $object_id);
-		$meta_cache = wp_cache_get($object_id, $meta_type . '_meta');
+		$meta_cache = update_meta_cache( $meta_type, array( $object_id ) );
+		$meta_cache = $meta_cache[$object_id];
 	}
 
-	if ( ! $meta_key )
+	if ( !$meta_key )
 		return $meta_cache;
 
 	if ( isset($meta_cache[$meta_key]) ) {
@@ -280,17 +309,20 @@ function update_meta_cache($meta_type, $object_ids) {
 
 	$cache_key = $meta_type . '_meta';
 	$ids = array();
+	$cache = array();
 	foreach ( $object_ids as $id ) {
-		if ( false === wp_cache_get($id, $cache_key) )
+		$cached_object = wp_cache_get( $id, $cache_key );
+		if ( false === $cached_object )
 			$ids[] = $id;
+		else
+			$cache[$id] = $cached_object;
 	}
 
 	if ( empty( $ids ) )
-		return false;
+		return $cache;
 
 	// Get meta info
 	$id_list = join(',', $ids);
-	$cache = array();
 	$meta_list = $wpdb->get_results( $wpdb->prepare("SELECT $column, meta_key, meta_value FROM $table WHERE $column IN ($id_list)",
 		$meta_type), ARRAY_A );
 
@@ -314,12 +346,127 @@ function update_meta_cache($meta_type, $object_ids) {
 	foreach ( $ids as $id ) {
 		if ( ! isset($cache[$id]) )
 			$cache[$id] = array();
+		wp_cache_add( $id, $cache[$id], $cache_key );
 	}
 
-	foreach ( array_keys($cache) as $object)
-		wp_cache_set($object, $cache[$object], $cache_key);
-
 	return $cache;
+}
+
+/**
+ * Given a meta query, generates SQL clauses to be appended to a main query
+ *
+ * @since 3.1.0
+ * @access private
+ *
+ * @param array $meta_query List of metadata queries. A single query is an associative array:
+ * - 'key' string The meta key
+ * - 'value' string|array The meta value
+ * - 'compare' (optional) string How to compare the key to the value.
+ *		Possible values: '=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN'.
+ *		Default: '='
+ * - 'type' string (optional) The type of the value.
+ *		Possible values: 'NUMERIC', 'BINARY', 'CHAR', 'DATE', 'DATETIME', 'DECIMAL', 'SIGNED', 'TIME', 'UNSIGNED'.
+ *		Default: 'CHAR'
+ *
+ * @param string $type Type of meta
+ * @param string $primary_table
+ * @param string $primary_id_column
+ * @param object $context (optional) The main query object
+ * @return array( 'join' => $join_sql, 'where' => $where_sql )
+ */
+function _get_meta_sql( $meta_query, $type, $primary_table, $primary_id_column, $context = null ) {
+	global $wpdb;
+
+	if ( ! $meta_table = _get_meta_table( $type ) )
+		return false;
+
+	$meta_id_column = esc_sql( $type . '_id' );
+
+	$join = '';
+	$where = '';
+	$i = 0;
+	foreach ( $meta_query as $q ) {
+		$meta_key = isset( $q['key'] ) ? trim( $q['key'] ) : '';
+		$meta_value = isset( $q['value'] ) ? $q['value'] : '';
+		$meta_compare = isset( $q['compare'] ) ? strtoupper( $q['compare'] ) : '=';
+		$meta_type = isset( $q['type'] ) ? strtoupper( $q['type'] ) : 'CHAR';
+
+		if ( ! in_array( $meta_compare, array( '=', '!=', '>', '>=', '<', '<=', 'LIKE', 'NOT LIKE', 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' ) ) )
+			$meta_compare = '=';
+
+		if ( 'NUMERIC' == $meta_type )
+			$meta_type = 'SIGNED';
+		elseif ( ! in_array( $meta_type, array( 'BINARY', 'CHAR', 'DATE', 'DATETIME', 'DECIMAL', 'SIGNED', 'TIME', 'UNSIGNED' ) ) )
+			$meta_type = 'CHAR';
+
+		if ( empty( $meta_key ) && empty( $meta_value ) )
+			continue;
+
+		$alias = $i ? 'mt' . $i : $meta_table;
+
+		$join .= "\nINNER JOIN $meta_table";
+		$join .= $i ? " AS $alias" : '';
+		$join .= " ON ($primary_table.$primary_id_column = $alias.$meta_id_column)";
+
+		$i++;
+
+		if ( !empty( $meta_key ) )
+			$where .= $wpdb->prepare( " AND $alias.meta_key = %s", $meta_key );
+
+		if ( in_array( $meta_compare, array( 'IN', 'NOT IN', 'BETWEEN', 'NOT BETWEEN' ) ) ) {
+			if ( ! is_array( $meta_value ) )
+				$meta_value = preg_split( '/[,\s]+/', $meta_value );
+		} else {
+			$meta_value = trim( $meta_value );
+		}
+
+		if ( empty( $meta_value ) )
+			continue;
+
+		if ( 'IN' == substr( $meta_compare, -2) ) {
+			$meta_compare_string = '(' . substr( str_repeat( ',%s', count( $meta_value ) ), 1 ) . ')';
+		} elseif ( 'BETWEEN' == substr( $meta_compare, -7) ) {
+			$meta_value = array_slice( $meta_value, 0, 2 );
+			$meta_compare_string = '%s AND %s';
+		} elseif ( 'LIKE' == substr( $meta_compare, -4 ) ) {
+			$meta_value = '%' . like_escape( $meta_value ) . '%';
+			$meta_compare_string = '%s';
+		} else {
+			$meta_compare_string = '%s';
+		}
+
+		// @todo Temporary hack to support empty values. Do not use outside of core.
+		if ( '_wp_zero_value' == $meta_value )
+			$meta_value = 0;
+
+		$where .= $wpdb->prepare( " AND CAST($alias.meta_value AS {$meta_type}) {$meta_compare} {$meta_compare_string}", $meta_value );
+	}
+
+	return apply_filters_ref_array( 'get_meta_sql', array( compact( 'join', 'where' ), $meta_query, $type, $primary_table, $primary_id_column, &$context ) );
+}
+
+/**
+ * Populates the $meta_query property
+ *
+ * @access private
+ * @since 3.1.0
+ *
+ * @param array $qv The query variables
+ */
+function _parse_meta_query( &$qv ) {
+	$meta_query = array();
+
+	// Simple query needs to be first for orderby=meta_value to work correctly
+	foreach ( array( 'key', 'value', 'compare', 'type' ) as $key ) {
+		if ( !empty( $qv[ "meta_$key" ] ) )
+			$meta_query[0][ $key ] = $qv[ "meta_$key" ];
+	}
+
+	if ( !empty( $qv['meta_query'] ) && is_array( $qv['meta_query'] ) ) {
+		$meta_query = array_merge( $meta_query, $qv['meta_query'] );
+	}
+
+	$qv['meta_query'] = $meta_query;
 }
 
 /**
@@ -328,7 +475,7 @@ function update_meta_cache($meta_type, $object_ids) {
  * @since 2.9.0
  * @uses $wpdb WordPress database object for queries.
  *
- * @param string $meta_type Type of object to get metadata table for (e.g., comment, post, or user)
+ * @param string $type Type of object to get metadata table for (e.g., comment, post, or user)
  * @return mixed Metadata table name, or false if no metadata table exists
  */
 function _get_meta_table($type) {

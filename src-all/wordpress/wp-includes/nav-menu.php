@@ -403,7 +403,7 @@ function wp_update_nav_menu_item( $menu_id = 0, $menu_item_db_id = 0, $menu_item
  *
  * @since 3.0.0
  *
- * @param $args array Array of arguments passed on to get_terms().
+ * @param array $args Array of arguments passed on to get_terms().
  * @return array menu objects
  */
 function wp_get_nav_menus( $args = array() ) {
@@ -653,7 +653,7 @@ function wp_get_associated_nav_menu_items( $object_id = 0, $object_type = 'post_
 			'meta_value' => $object_id,
 			'post_status' => 'any',
 			'post_type' => 'nav_menu_item',
-			'showposts' => -1,
+			'posts_per_page' => -1,
 		)
 	);
 	foreach( (array) $menu_items as $menu_item ) {

@@ -42,7 +42,7 @@ define('WP_DEBUG', false);
 require_once(ABSPATH . WPINC . '/load.php');
 require_once(ABSPATH . WPINC . '/compat.php');
 require_once(ABSPATH . WPINC . '/functions.php');
-require_once(ABSPATH . WPINC . '/classes.php');
+require_once(ABSPATH . WPINC . '/class-wp-error.php');
 require_once(ABSPATH . WPINC . '/version.php');
 
 if (!file_exists(ABSPATH . 'wp-config-sample.php'))
@@ -176,8 +176,10 @@ switch($step) {
 
 	// We'll fail here if the values are no good.
 	require_wp_db();
-	if ( !empty($wpdb->error) )
-		wp_die($wpdb->error->get_error_message());
+	if ( ! empty( $wpdb->error ) ) {
+		$back = '<p class="step"><a href="setup-config.php?step=1" onclick="javascript:history.go(-1);return false;" class="button">Try Again</a></p>';
+		wp_die( $wpdb->error->get_error_message() . $back );
+	}
 
 	// Fetch or generate keys and salts.
 	$no_api = isset( $_POST['noapi'] );

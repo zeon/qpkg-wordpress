@@ -3,7 +3,7 @@ Contributors: alexrabe
 Donate link: http://alexrabe.de/donation/
 Tags: photos,flash,slideshow,images,gallery,media,admin,post,photo-albums,pictures,widgets,photo,picture,image,nextgen-gallery,nextgen gallery
 Requires at least: 3.0
-Tested up to: 3.0
+Tested up to: 3.1
 Stable tag: trunk
 
 NextGEN Gallery is a full integrated Image Gallery plugin for WordPress with dozens of options and features.
@@ -42,11 +42,10 @@ Important Links:
 * Tag support for images : Append related images to your post, create a image tag-cloud
 * Meta data support : Import EXIF, IPTC or XMP meta data 
 * Sort images feature
-* Cool flash addons here : http://wordpress.org/extend/plugins/nextgen-flashviewer/
 
 == Credits ==
 
-Copyright 2007-2010 by Alex Rabe & NextGEN DEV-Team
+Copyright 2007-2011 by Alex Rabe & NextGEN DEV-Team
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -133,6 +132,45 @@ To show the most recent added mages : **[recent max=x ]**
 **And at least request your question here :** http://wordpress.org/tags/nextgen-gallery?forum_id=10
 
 == Changelog == 
+
+= V1.7.4 - 15.02.2011 =
+* Bugfix : Disallow direct call of ajax file to avoid path disclosure (THX to High-Tech Bridge SA)
+* Bugfix : Rework jQuery Cycle slideshow for IE compat reason (THX to Justin Dickenson)
+* Bugfix : Resize only larger images in slideshow
+* Bugfix : Improved image format detection in gd.thumbnail class (THX to Kupar.b)
+
+= V1.7.3 - 20.01.2011 =
+* NEW : Introduce plugin health check for conflicts with other plugins/themes
+* NEW : Adding new XMLRPC method ngg.deleteImage
+* NEW : Adding new XMLRPC method ngg.editImage
+* Changed : Rework register script for autocomplete feature
+* Bugfix : Bugfix for Multisite setup and flash upload
+* Bugfix : WP3.1 compat issue, show site admin page only on Multisite installation
+
+= V1.7.2 - 13.12.2010 =
+* Bugfix : Adding images to database require slug (NOT NULL)
+
+= V1.7.1 - 13.12.2010 =
+* Changed : Disable upgrade for PHP4 user
+* Changed : Disable colorpicker for option page
+* Bugfix : Compat fix for upgrade
+
+= V1.7.0 - 11.12.2010 =
+* NEW : Publish a new post direct from the gallery admin page
+* NEW : Added filter hook 'ngg_get_image_metadata' to add more exif/iptc information
+* NEW : Adding Autocomplete field to TinyMCE Popup and Album page
+* NEW : More methods for XMLRPC interface
+* Changed : New hooks for gallery table (THX to Alexander Schneider)
+* Changed : Introduce jQuery dialog as new UI element
+* Changed : Call TinyMCE window via admin-ajax
+* Bugfix : Better support for SSL blogs
+* Bugfix : Install/Upgrade failed when table prefix contain captial letters
+* Bugfix : Fix validation issues in Media-RSS
+* Bugfix : Empty tags in XMP Meta causes PHP error
+* Bugfix : Rework load mechanism for slideshow
+* Bugfix : Copy meta data when image is copied
+* Bugfix : Icon Support for Ozh' Admin Drop Down Menu
+* Bugfix : Use correct sort order in slideshow
 
 = V1.6.2 - 19.09.2010 =
 * NEW : Added constant NGG_SKIP_LOAD_SCRIPTS to avoid script load

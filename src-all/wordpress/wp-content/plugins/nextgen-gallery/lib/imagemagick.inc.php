@@ -564,6 +564,10 @@ var $imageMagickBefore;
 	    	//$this->errmsg = 'Create Image failed. Check safe mode settings';
 	    	return false;
 	    }
+        
+        if( function_exists('do_action') )
+	       do_action('ngg_ajax_image_save', $name);
+
 	    return true;
 	}
 	    

@@ -297,3 +297,150 @@ function ngg_ajax_file_browser() {
     
     die();	
 }
+
+add_action('wp_ajax_ngg_tinymce', 'ngg_ajax_tinymce');
+/**
+ * Call TinyMCE window content via admin-ajax
+ * 
+ * @since 1.7.0 
+ * @return html content
+ */
+function ngg_ajax_tinymce() {
+
+    // check for rights
+    if ( !current_user_can('edit_pages') && !current_user_can('edit_posts') ) 
+    	die(__("You are not allowed to be here"));
+        	
+   	include_once( dirname( dirname(__FILE__) ) . '/admin/tinymce/window.php');
+    
+    die();	
+}
+
+add_action( 'wp_ajax_ngg_rebuild_unique_slugs', 'ngg_ajax_rebuild_unique_slugs' );
+/**
+ * This rebuild the slugs for albums, galleries and images as ajax routine, max 50 elements per request
+ * 
+ * @since 1.7.0
+ * @return string '1'
+ */
+function ngg_ajax_rebuild_unique_slugs() {
+    global $wpdb;
+    
+	$action = $_POST['_action'];
+    $offset = (int) $_POST['offset'];
+    
+    switch ($action) {
+        case 'images':
+        	$images = $wpdb->get_results("SELECT * FROM $wpdb->nggpictures ORDER BY pid ASC LIMIT $offset, 50", OBJECT_K);
+        	if ( is_array($images) ) {
+                foreach ($images as $image) {
+            		//slug must be unique, we use the alttext for that
+                    $image->slug = nggdb::get_unique_slug( sanitize_title( $image->alttext ), 'image' );
+                    $wpdb->query( $wpdb->prepare( "UPDATE $wpdb->nggpictures SET image_slug= '%s' WHERE pid = '%d'" , $image->slug, $image->pid ) );
+                }
+            }
+        break;
+        case 'gallery':
+        	$galleries = $wpdb->get_results("SELECT * FROM $wpdb->nggallery ORDER BY gid ASC LIMIT $offset, 50", OBJECT_K);
+        	if ( is_array($galleries) ) {
+                foreach ($galleries as $gallery) {
+            		//slug must be unique, we use the title for that
+                    $gallery->slug = nggdb::get_unique_slug( sanitize_title( $gallery->title ), 'gallery' );
+                    $wpdb->query( $wpdb->prepare( "UPDATE $wpdb->nggallery SET slug= '%s' WHERE gid = '%d'" , $gallery->slug, $gallery->gid ) );
+                }
+            } 
+        break;
+        case 'album':
+        	$albumlist = $wpdb->get_results("SELECT * FROM $wpdb->nggalbum ORDER BY id ASC LIMIT $offset, 50", OBJECT_K);
+        	if ( is_array($albumlist) ) {
+                foreach ($albumlist as $album) {
+            		//slug must be unique, we use the name for that
+                    $album->slug = nggdb::get_unique_slug( sanitize_title( $album->name ), 'album' );
+                    $wpdb->query( $wpdb->prepare( "UPDATE $wpdb->nggalbum SET slug= '%s' WHERE id = '%d'" , $album->slug, $album->id ) );
+                }
+            }         
+        break;
+    }
+
+	die(1);
+}
+add_action('wp_ajax_ngg_image_check', 'ngg_ajax_image_check');
+/**
+ * Test for various image resolution
+ * 
+ * @since 1.7.3 
+ * @return result
+ */
+function ngg_ajax_image_check() {
+
+    // check for correct NextGEN capability
+	if ( !current_user_can('NextGEN Upload images') ) 
+		die('No access');	
+
+    if ( !defined('ABSPATH') )
+        die('No access');
+    
+    $step = (int) $_POST['step'];
+
+	// build the test sizes
+	$sizes = array();
+	$sizes[1] = array ( 'width' => 800,  'height' => 600);
+	$sizes[2] = array ( 'width' => 1024, 'height' => 768);
+	$sizes[3] = array ( 'width' => 1280, 'height' => 960);  // 1MP	
+	$sizes[4] = array ( 'width' => 1600, 'height' => 1200); // 2MP
+	$sizes[5] = array ( 'width' => 2016, 'height' => 1512); // 3MP
+	$sizes[6] = array ( 'width' => 2272, 'height' => 1704); // 4MP
+	$sizes[7] = array ( 'width' => 2560, 'height' => 1920); // 5MP
+    $sizes[8] = array ( 'width' => 2848, 'height' => 2136); // 6MP
+    $sizes[9] = array ( 'width' => 3072, 'height' => 2304); // 7MP
+    $sizes[10] = array ( 'width' => 3264, 'height' => 2448); // 8MP
+    $sizes[11] = array ( 'width' => 4048, 'height' => 3040); // 12MP
+    
+    if ( $step < 1 || $step > 11 )
+        die('No vaild value');
+        
+    // let's test each image size
+    $temp = imagecreatetruecolor ($sizes[$step]['width'], $sizes[$step]['height'] );
+    imagedestroy ($temp);
+    
+    $result = array ('stat' => 'ok', 'message' => sprintf(__('Could create image with %s x %s pixel', 'nggallery'), $sizes[$step]['width'], $sizes[$step]['height'] ) );
+    
+	header('Content-Type: application/json; charset=' . get_option('blog_charset'), true);
+	echo json_encode($result);
+    
+    die();	
+}
+
+add_action('wp_ajax_ngg_test_head_footer', 'ngg_ajax_test_head_footer');
+/**
+ * Check for the header / footer, parts taken from Matt Martz (http://sivel.net/)
+ * 
+ * @see https://gist.github.com/378450
+ * @since 1.7.3 
+ * @return result
+ */
+function ngg_ajax_test_head_footer() {
+
+	// Build the url to call, NOTE: uses home_url and thus requires WordPress 3.0
+	$url = add_query_arg( array( 'test-head' => '', 'test-footer' => '' ), home_url() );
+	// Perform the HTTP GET ignoring SSL errors
+	$response = wp_remote_get( $url, array( 'sslverify' => false ) );
+	// Grab the response code and make sure the request was sucessful
+	$code = (int) wp_remote_retrieve_response_code( $response );
+	if ( $code == 200 ) {
+		global $head_footer_errors;
+		$head_footer_errors = array();
+
+		// Strip all tabs, line feeds, carriage returns and spaces
+		$html = preg_replace( '/[\t\r\n\s]/', '', wp_remote_retrieve_body( $response ) );
+
+		// Check to see if we found the existence of wp_head
+		if ( ! strstr( $html, '<!--wp_head-->' ) )
+			die('Missing the call to <?php wp_head(); ?> in your theme');
+		// Check to see if we found the existence of wp_footer
+		if ( ! strstr( $html, '<!--wp_footer-->' ) )
+			die('Missing the call to <?php wp_footer(); ?> in your theme');
+	}
+    die('success');	
+}
+?>

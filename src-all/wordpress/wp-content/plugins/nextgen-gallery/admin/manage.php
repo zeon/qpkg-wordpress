@@ -26,6 +26,9 @@ class nggManageGallery {
 		// Should be only called via a edit single gallery page	
 		if ( isset($_POST['page']) && $_POST['page'] == 'manage-images' )
 			$this->post_processor_images();
+		// Should be called via a publish dialog	
+		if ( isset($_POST['page']) && $_POST['page'] == 'publish-post' )
+			$this->publish_post();
 		//Look for other POST process
 		if ( !empty($_POST) || !empty($_GET) )
 			$this->processor();
@@ -55,39 +58,6 @@ class nggManageGallery {
 	
 		global $wpdb, $ngg, $nggdb;
 		
-		// Delete a gallery
-		if ($this->mode == 'delete') {
-		
-			check_admin_referer('ngg_editgallery');
-		
-			// get the path to the gallery
-			$gallerypath = $wpdb->get_var("SELECT path FROM $wpdb->nggallery WHERE gid = '$this->gid' ");
-			if ($gallerypath){
-		
-				// delete pictures
-				//TODO:Remove also Tag reference, look here for ids instead filename
-				$imagelist = $wpdb->get_col("SELECT filename FROM $wpdb->nggpictures WHERE galleryid = '$this->gid' ");
-				if ($ngg->options['deleteImg']) {
-					if (is_array($imagelist)) {
-						foreach ($imagelist as $filename) {
-							@unlink(WINABSPATH . $gallerypath . '/thumbs/thumbs_' . $filename);
-							@unlink(WINABSPATH . $gallerypath .'/'. $filename);
-						}
-					}
-					// delete folder
-						@rmdir( WINABSPATH . $gallerypath . '/thumbs' );
-						@rmdir( WINABSPATH . $gallerypath );
-				}
-			}
-	
-			$delete_galllery = nggdb::delete_gallery( $this->gid );
-			
-			if($delete_galllery)
-				nggGallery::show_message( _n( 'Gallery', 'Galleries', 1, 'nggallery' ) . ' \''.$this->gid.'\' '.__('deleted successfully','nggallery'));
-				
-		 	$this->mode = 'main'; // show mainpage
-		}
-	
 		// Delete a picture
 		if ($this->mode == 'delpic') {
 
@@ -166,6 +136,37 @@ class nggManageGallery {
 				// Import Metadata
 					// A prefix 'gallery_' will first fetch all ids from the selected galleries
 					nggAdmin::do_ajax_operation( 'gallery_import_metadata' , $_POST['doaction'], __('Import metadata','nggallery') );
+					break;
+				case 'delete_gallery':
+				// Delete gallery
+					if ( is_array($_POST['doaction']) ) {
+                        $deleted = false;
+						foreach ( $_POST['doaction'] as $id ) {
+                			// get the path to the gallery
+                			$gallery = nggdb::find_gallery($id);
+                			if ($gallery){
+                				//TODO:Remove also Tag reference, look here for ids instead filename
+                				$imagelist = $wpdb->get_col("SELECT filename FROM $wpdb->nggpictures WHERE galleryid = '$gallery->gid' ");
+                				if ($ngg->options['deleteImg']) {
+                					if (is_array($imagelist)) {
+                						foreach ($imagelist as $filename) {
+                							@unlink(WINABSPATH . $gallery->path . '/thumbs/thumbs_' . $filename);
+                							@unlink(WINABSPATH . $gallery->path .'/'. $filename);
+                                            @unlink(WINABSPATH . $gallery->path .'/'. $filename . '_backup');
+                						}
+                					}
+                					// delete folder
+               						@rmdir( WINABSPATH . $gallery->path . '/thumbs' );
+               						@rmdir( WINABSPATH . $gallery->path );
+                				}
+                			}
+                	
+                			$deleted = nggdb::delete_gallery( $id );
+  						}
+                        
+						if($deleted)
+							nggGallery::show_message(__('Gallery deleted successfully ', 'nggallery'));
+					}
 					break;
 			}
 		}
@@ -361,8 +362,11 @@ class nggManageGallery {
 			
 			if ( nggGallery::current_user_can( 'NextGEN Edit gallery options' )) {
 				
-				if ( nggGallery::current_user_can( 'NextGEN Edit gallery title' ))
-					$wpdb->query( $wpdb->prepare ("UPDATE $wpdb->nggallery SET title= '%s' WHERE gid = %d", esc_attr($_POST['title']), $this->gid) );
+				if ( nggGallery::current_user_can( 'NextGEN Edit gallery title' )) {
+				    // don't forget to update the slug
+				    $slug = nggdb::get_unique_slug( sanitize_title( $_POST['title'] ), 'gallery' );
+				    $wpdb->query( $wpdb->prepare ("UPDATE $wpdb->nggallery SET title= '%s', slug= '%s' WHERE gid = %d", esc_attr($_POST['title']), $slug, $this->gid) );				    
+				}
 				if ( nggGallery::current_user_can( 'NextGEN Edit gallery path' ))
 					$wpdb->query( $wpdb->prepare ("UPDATE $wpdb->nggallery SET path= '%s' WHERE gid = %d", untrailingslashit ( str_replace('\\', '/', trim( stripslashes($_POST['path']) )) ), $this->gid ) );
 				if ( nggGallery::current_user_can( 'NextGEN Edit gallery description' ))
@@ -418,59 +422,94 @@ class nggManageGallery {
 			if ($gallery_pageid != 0) {
 				$result = $wpdb->query("UPDATE $wpdb->nggallery SET title= '$gallery_title', pageid = '$gallery_pageid' WHERE gid = '$this->gid'");
 				wp_cache_delete($this->gid, 'ngg_gallery');
-                nggGallery::show_message( __('New gallery page ID','nggallery'). ' ' . $pageid . ' -> <strong>' . $gallery_title . '</strong> ' .__('created','nggallery') );
+                nggGallery::show_message( __('New gallery page ID','nggallery'). ' ' . $gallery_pageid . ' -> <strong>' . $gallery_title . '</strong> ' .__('created','nggallery') );
 			}
 		}
 	}
+    
+   	/**
+   	 * Publish a new post with the shortcode from the selected image
+     * 
+   	 * @since 1.7.0
+   	 * @return void
+   	 */
+   	function publish_post() {
+   	    
+   	    check_admin_referer('publish-post');
+
+		// Create a WP page
+		global $user_ID, $ngg;
+        
+		$ngg->options['publish_width']  = (int) $_POST['width'];
+		$ngg->options['publish_height'] = (int) $_POST['height'];
+		$ngg->options['publish_align'] = $_POST['align'];
+        $align = ( $ngg->options['publish_align'] == 'none') ? '' : 'float='.$ngg->options['publish_align']; 
+
+		//save the new values for the next operation
+		update_option('ngg_options', $ngg->options);
+
+		$post['post_type']    = 'post';
+		$post['post_content'] = '[singlepic id=' . intval($_POST['pid']) . ' w=' . $ngg->options['publish_width'] . ' h=' . $ngg->options['publish_height'] . ' ' . $align . ']';
+		$post['post_author']  = $user_ID;
+		$post['post_status']  = isset ( $_POST['publish'] ) ? 'publish' : 'draft';
+		$post['post_title']   = $_POST['post_title'];
+		$post = apply_filters('ngg_add_new_post', $post, $_POST['pid']);
+
+		$post_id = wp_insert_post ($post);
+        
+		if ($post_id != 0)
+            nggGallery::show_message( __('Published a new post','nggallery') );
+
+    }
 	
 	function update_pictures() {
-		global $wpdb;
+		global $wpdb, $nggdb;
 
 		//TODO:Error message when update failed
-		//TODO:Combine update in one query per image
 		
-		$description = 	isset ( $_POST['description'] ) ? $_POST['description'] : false;
-		$alttext = 		isset ( $_POST['alttext'] ) ? $_POST['alttext'] : false;
+		$description = 	isset ( $_POST['description'] ) ? $_POST['description'] : array();
+		$alttext = 		isset ( $_POST['alttext'] ) ? $_POST['alttext'] : array();
 		$exclude = 		isset ( $_POST['exclude'] ) ? $_POST['exclude'] : false;
 		$taglist = 		isset ( $_POST['tags'] ) ? $_POST['tags'] : false;
 		$pictures = 	isset ( $_POST['pid'] ) ? $_POST['pid'] : false;
-		
-		if ( is_array($description) ) {
-			foreach( $description as $key => $value ) {
-				$desc = $wpdb->escape($value);
-				$wpdb->query( "UPDATE $wpdb->nggpictures SET description = '$desc' WHERE pid = $key");
-                wp_cache_delete($key, 'ngg_image');                
-			}
-		}
-		if ( is_array($alttext) ){
-			foreach( $alttext as $key => $value ) {
-				$alttext = $wpdb->escape($value);
-				$wpdb->query( "UPDATE $wpdb->nggpictures SET alttext = '$alttext' WHERE pid = $key");
-                wp_cache_delete($key, 'ngg_image');                
-			}
-		}
 
 		if ( is_array($pictures) ){
 			foreach( $pictures as $pid ){
-				$pid = (int) $pid;
-				if (is_array($exclude)){
-					if ( array_key_exists($pid, $exclude) )
-						$wpdb->query("UPDATE $wpdb->nggpictures SET exclude = 1 WHERE pid = '$pid'");
-					else 
-						$wpdb->query("UPDATE $wpdb->nggpictures SET exclude = 0 WHERE pid = '$pid'");
-				} else {
-					$wpdb->query("UPDATE $wpdb->nggpictures SET exclude = 0 WHERE pid = '$pid'");
-				}
-			}
-		}
-
+                $image = $nggdb->find_image( $pid );
+                if ($image) {
+                    // description field
+                    $image->description = $description[$image->pid];
+                    
+                    // only uptade this field if someone change the alttext
+                    if ( $image->alttext != $alttext[$image->pid] ) {
+                        $image->alttext = $alttext[$image->pid];
+                        $image->image_slug = nggdb::get_unique_slug( sanitize_title( $image->alttext ), 'image' );                        
+                    }
+                    
+                    // set exclude flag
+                    if ( is_array($exclude) )
+    					$image->exclude = ( array_key_exists($image->pid, $exclude) )? 1 : 0;
+    				else
+    					$image->exclude = 0;
+                        
+                    // update the database
+                    $wpdb->query( $wpdb->prepare ("UPDATE $wpdb->nggpictures SET image_slug = '%s', alttext = '%s', description = '%s', exclude = %d WHERE pid = %d", 
+                                                                                 $image->image_slug, $image->alttext, $image->description, $image->exclude, $image->pid) );    
+                    // remove from cache    
+                    wp_cache_delete($image->pid, 'ngg_image'); 
+                }
+                
+            }
+        }
+        
+        //TODO: This produce 300-400 queries !
 		if ( is_array($taglist) ){
 			foreach($taglist as $key=>$value) {
 				$tags = explode(',', $value);
 				wp_set_object_terms($key, $tags, 'ngg_tag');
 			}
 		}
-		
+        
 		return;
 	}
 

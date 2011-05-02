@@ -27,19 +27,18 @@ function mysql2date( $dateformatstring, $mysqlstring, $translate = true ) {
 	if ( empty( $m ) )
 		return false;
 
-	if ( 'G' == $dateformatstring ) {
+	if ( 'G' == $dateformatstring )
 		return strtotime( $m . ' +0000' );
-	}
 
 	$i = strtotime( $m );
 
 	if ( 'U' == $dateformatstring )
 		return $i;
 
-	if ( $translate)
-	    return date_i18n( $dateformatstring, $i );
+	if ( $translate )
+		return date_i18n( $dateformatstring, $i );
 	else
-	    return date( $dateformatstring, $i );
+		return date( $dateformatstring, $i );
 }
 
 /**
@@ -118,6 +117,23 @@ function date_i18n( $dateformatstring, $unixtimestamp = false, $gmt = false ) {
 		$dateformatstring = preg_replace( "/([^\\\])A/", "\\1" . backslashit( $datemeridiem_capital ), $dateformatstring );
 
 		$dateformatstring = substr( $dateformatstring, 1, strlen( $dateformatstring ) -1 );
+	}
+	$timezone_formats = array( 'P', 'I', 'O', 'T', 'Z', 'e' );
+	$timezone_formats_re = implode( '|', $timezone_formats );
+	if ( preg_match( "/$timezone_formats_re/", $dateformatstring ) && wp_timezone_supported() ) {
+		$timezone_string = get_option( 'timezone_string' );
+		if ( $timezone_string ) {
+			$timezone_object = timezone_open( $timezone_string );
+			$date_object = date_create( null, $timezone_object );
+			foreach( $timezone_formats as $timezone_format ) {
+				if ( false !== strpos( $dateformatstring, $timezone_format ) ) {
+					$formatted = date_format( $date_object, $timezone_format );
+					$dateformatstring = ' '.$dateformatstring;
+					$dateformatstring = preg_replace( "/([^\\\])$timezone_format/", "\\1" . backslashit( $formatted ), $dateformatstring );
+					$dateformatstring = substr( $dateformatstring, 1, strlen( $dateformatstring ) -1 );
+				}
+			}
+		}
 	}
 	$j = @$datefunc( $dateformatstring, $i );
 	// allow plugins to redo this entirely for languages with untypical grammars
@@ -230,26 +246,31 @@ function maybe_unserialize( $original ) {
  */
 function is_serialized( $data ) {
 	// if it isn't a string, it isn't serialized
-	if ( !is_string( $data ) )
+	if ( ! is_string( $data ) )
 		return false;
 	$data = trim( $data );
-	if ( 'N;' == $data )
+ 	if ( 'N;' == $data )
 		return true;
-	if ( !preg_match( '/^([adObis]):/', $data, $badions ) )
+	$length = strlen( $data );
+	if ( $length < 4 )
 		return false;
-	switch ( $badions[1] ) {
+	if ( ':' !== $data[1] )
+		return false;
+	$lastc = $data[$length-1];
+	if ( ';' !== $lastc && '}' !== $lastc )
+		return false;
+	$token = $data[0];
+	switch ( $token ) {
+		case 's' :
+			if ( '"' !== $data[$length-2] )
+				return false;
 		case 'a' :
 		case 'O' :
-		case 's' :
-			if ( preg_match( "/^{$badions[1]}:[0-9]+:.*[;}]\$/s", $data ) )
-				return true;
-			break;
+			return (bool) preg_match( "/^{$token}:[0-9]+:/s", $data );
 		case 'b' :
 		case 'i' :
 		case 'd' :
-			if ( preg_match( "/^{$badions[1]}:[0-9.E-]+;\$/", $data ) )
-				return true;
-			break;
+			return (bool) preg_match( "/^{$token}:[0-9.E-]+;\$/", $data );
 	}
 	return false;
 }
@@ -412,10 +433,11 @@ function wp_load_alloptions() {
 			$alloptions_db = $wpdb->get_results( "SELECT option_name, option_value FROM $wpdb->options" );
 		$wpdb->suppress_errors($suppress);
 		$alloptions = array();
-		foreach ( (array) $alloptions_db as $o )
+		foreach ( (array) $alloptions_db as $o ) {
 			$alloptions[$o->option_name] = $o->option_value;
-			if ( !defined( 'WP_INSTALLING' ) || !is_multisite() )
-				wp_cache_add( 'alloptions', $alloptions, 'options' );
+		}
+		if ( !defined( 'WP_INSTALLING' ) || !is_multisite() )
+			wp_cache_add( 'alloptions', $alloptions, 'options' );
 	}
 
 	return $alloptions;
@@ -439,7 +461,7 @@ function wp_load_core_site_options( $site_id = null ) {
 	if ( empty($site_id) )
 		$site_id = $wpdb->siteid;
 
-	$core_options = array('site_name', 'siteurl', 'active_sitewide_plugins', '_site_transient_timeout_theme_roots', '_site_transient_theme_roots', 'site_admins', 'dashboard_blog', 'can_compress_scripts', 'global_terms_enabled' );
+	$core_options = array('site_name', 'siteurl', 'active_sitewide_plugins', '_site_transient_timeout_theme_roots', '_site_transient_theme_roots', 'site_admins', 'can_compress_scripts', 'global_terms_enabled' );
 
 	$core_options_in = "'" . implode("', '", $core_options) . "'";
 	$options = $wpdb->get_results( $wpdb->prepare("SELECT meta_key, meta_value FROM $wpdb->sitemeta WHERE meta_key IN ($core_options_in) AND site_id = %d", $site_id) );
@@ -546,7 +568,6 @@ function update_option( $option, $newvalue ) {
  * @package WordPress
  * @subpackage Option
  * @since 1.0.0
- * @link http://alex.vort-x.net/blog/ Thanks Alex Stapleton
  *
  * @uses do_action() Calls 'add_option' hook before adding the option.
  * @uses do_action() Calls 'add_option_$option' and 'added_option' hooks on success.
@@ -670,7 +691,7 @@ function delete_option( $option ) {
 function delete_transient( $transient ) {
 	global $_wp_using_ext_object_cache;
 
-    do_action( 'delete_transient_' . $transient, $transient );
+	do_action( 'delete_transient_' . $transient, $transient );
 
 	if ( $_wp_using_ext_object_cache ) {
 		$result = wp_cache_delete( $transient, 'transient' );
@@ -758,7 +779,7 @@ function get_transient( $transient ) {
 function set_transient( $transient, $value, $expiration = 0 ) {
 	global $_wp_using_ext_object_cache;
 
-    $value = apply_filters( 'pre_set_transient_' . $transient, $value );
+	$value = apply_filters( 'pre_set_transient_' . $transient, $value );
 
 	if ( $_wp_using_ext_object_cache ) {
 		$result = wp_cache_set( $transient, $value, 'transient', $expiration );
@@ -1163,6 +1184,8 @@ function debug_fclose( $fp ) {
  */
 function do_enclose( $content, $post_ID ) {
 	global $wpdb;
+
+	//TODO: Tidy this ghetto code up and make the debug code optional
 	include_once( ABSPATH . WPINC . '/class-IXR.php' );
 
 	$log = debug_fopen( ABSPATH . 'enclosures.log', 'a' );
@@ -1183,7 +1206,7 @@ function do_enclose( $content, $post_ID ) {
 
 	foreach ( $pung as $link_test ) {
 		if ( !in_array( $link_test, $post_links_temp[0] ) ) { // link no longer in post
-			$mid = $wpdb->get_col( $wpdb->prepare("SELECT meta_id FROM $wpdb->postmeta WHERE post_id = %d AND meta_key = 'enclosure' AND meta_value LIKE (%s)", $post_ID, $link_test . '%') );
+			$mid = $wpdb->get_col( $wpdb->prepare("SELECT meta_id FROM $wpdb->postmeta WHERE post_id = %d AND meta_key = 'enclosure' AND meta_value LIKE (%s)", $post_ID, like_escape( $link_test ) . '%') );
 			do_action( 'delete_postmeta', $mid );
 			$wpdb->query( $wpdb->prepare("DELETE FROM $wpdb->postmeta WHERE meta_id IN(%s)", implode( ',', $mid ) ) );
 			do_action( 'deleted_postmeta', $mid );
@@ -1197,13 +1220,13 @@ function do_enclose( $content, $post_ID ) {
 				continue;
 			if ( isset( $test['query'] ) )
 				$post_links[] = $link_test;
-			elseif ( $test['path'] != '/' && $test['path'] != '' )
+			elseif ( isset($test['path']) && ( $test['path'] != '/' ) &&  ($test['path'] != '' ) )
 				$post_links[] = $link_test;
 		}
 	}
 
 	foreach ( (array) $post_links as $url ) {
-		if ( $url != '' && !$wpdb->get_var( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE post_id = %d AND meta_key = 'enclosure' AND meta_value LIKE (%s)", $post_ID, $url . '%' ) ) ) {
+		if ( $url != '' && !$wpdb->get_var( $wpdb->prepare( "SELECT post_id FROM $wpdb->postmeta WHERE post_id = %d AND meta_key = 'enclosure' AND meta_value LIKE (%s)", $post_ID, like_escape( $url ) . '%' ) ) ) {
 
 			if ( $headers = wp_get_http_headers( $url) ) {
 				$len = (int) $headers['content-length'];
@@ -1321,8 +1344,8 @@ function wp_get_http_headers( $url, $deprecated = false ) {
  * @return int 1 when new day, 0 if not a new day.
  */
 function is_new_day() {
-	global $day, $previousday;
-	if ( $day != $previousday )
+	global $currentday, $previousday;
+	if ( $currentday != $previousday )
 		return 1;
 	else
 		return 0;
@@ -1619,7 +1642,7 @@ function status_header( $header ) {
  * The several different headers cover the different ways cache prevention is handled
  * by different browsers
  *
- * @since 2.8
+ * @since 2.8.0
  *
  * @uses apply_filters()
  * @return array The associative array of header names and field values.
@@ -1633,7 +1656,7 @@ function wp_get_nocache_headers() {
 	);
 
 	if ( function_exists('apply_filters') ) {
-		$headers = apply_filters('nocache_headers', $headers);
+		$headers = (array) apply_filters('nocache_headers', $headers);
 	}
 	return $headers;
 }
@@ -1649,7 +1672,7 @@ function wp_get_nocache_headers() {
  */
 function nocache_headers() {
 	$headers = wp_get_nocache_headers();
-	foreach( (array) $headers as $name => $field_value )
+	foreach( $headers as $name => $field_value )
 		@header("{$name}: {$field_value}");
 }
 
@@ -2058,7 +2081,7 @@ function path_is_absolute( $path ) {
 	if ( realpath($path) == $path )
 		return true;
 
-	if ( strlen($path) == 0 || $path{0} == '.' )
+	if ( strlen($path) == 0 || $path[0] == '.' )
 		return false;
 
 	// windows allows absolute paths like this
@@ -2125,7 +2148,7 @@ function wp_upload_dir( $time = null ) {
 	$siteurl = get_option( 'siteurl' );
 	$upload_path = get_option( 'upload_path' );
 	$upload_path = trim($upload_path);
-	$main_override = defined( 'MULTISITE' ) && is_main_site();
+	$main_override = is_multisite() && defined( 'MULTISITE' ) && is_main_site();
 	if ( empty($upload_path) ) {
 		$dir = WP_CONTENT_DIR . '/uploads';
 	} else {
@@ -2190,14 +2213,14 @@ function wp_upload_dir( $time = null ) {
  * before the extension, and will continue adding numbers until the filename is
  * unique.
  *
- * The callback must accept two parameters, the first one is the directory and
- * the second is the filename. The callback must be a function.
+ * The callback is passed three parameters, the first one is the directory, the
+ * second is the filename, and the third is the extension.
  *
- * @since 2.5
+ * @since 2.5.0
  *
  * @param string $dir
  * @param string $filename
- * @param string $unique_filename_callback Function name, must be a function.
+ * @param mixed $unique_filename_callback Callback.
  * @return string New filename, if given wasn't unique.
  */
 function wp_unique_filename( $dir, $filename, $unique_filename_callback = null ) {
@@ -2213,9 +2236,9 @@ function wp_unique_filename( $dir, $filename, $unique_filename_callback = null )
 	if ( $name === $ext )
 		$name = '';
 
-	// Increment the file number until we have a unique file to save in $dir. Use $override['unique_filename_callback'] if supplied.
+	// Increment the file number until we have a unique file to save in $dir. Use callback if supplied.
 	if ( $unique_filename_callback && is_callable( $unique_filename_callback ) ) {
-		$filename = $unique_filename_callback( $dir, $name );
+		$filename = call_user_func( $unique_filename_callback, $dir, $name, $ext );
 	} else {
 		$number = '';
 
@@ -2573,7 +2596,7 @@ function wp_explain_nonce( $action ) {
 		$trans['edit']['plugin']       = array( __( 'Your attempt to edit this plugin file: &#8220;%s&#8221; has failed.' ), 'use_id' );
 		$trans['activate']['plugin']   = array( __( 'Your attempt to activate this plugin: &#8220;%s&#8221; has failed.' ), 'use_id' );
 		$trans['deactivate']['plugin'] = array( __( 'Your attempt to deactivate this plugin: &#8220;%s&#8221; has failed.' ), 'use_id' );
-		$trans['upgrade']['plugin']    = array( __( 'Your attempt to upgrade this plugin: &#8220;%s&#8221; has failed.' ), 'use_id' );
+		$trans['upgrade']['plugin']    = array( __( 'Your attempt to update this plugin: &#8220;%s&#8221; has failed.' ), 'use_id' );
 
 		$trans['add']['post']          = array( __( 'Your attempt to add this post has failed.' ), false );
 		$trans['delete']['post']       = array( __( 'Your attempt to delete this post: &#8220;%s&#8221; has failed.' ), 'get_the_title' );
@@ -2657,9 +2680,12 @@ function wp_nonce_ays( $action ) {
  * @param string|array $args Optional arguements to control behaviour.
  */
 function wp_die( $message, $title = '', $args = array() ) {
+	if ( defined( 'DOING_AJAX' ) && DOING_AJAX )
+		die('-1');
+
 	if ( function_exists( 'apply_filters' ) ) {
 		$function = apply_filters( 'wp_die_handler', '_default_wp_die_handler');
-	}else {
+	} else {
 		$function = '_default_wp_die_handler';
 	}
 
@@ -2739,7 +2765,7 @@ function _default_wp_die_handler( $message, $title = '', $args = array() ) {
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <!-- Ticket #11289, IE bug fix: always pad the error page with enough characters such that it is greater than 512 bytes, even after gzip compression abcdefghijklmnopqrstuvwxyz1234567890aabbccddeeffgghhiijjkkllmmnnooppqqrrssttuuvvwwxxyyzz11223344556677889900abacbcbdcdcededfefegfgfhghgihihjijikjkjlklkmlmlnmnmononpopoqpqprqrqsrsrtstsubcbcdcdedefefgfabcadefbghicjkldmnoepqrfstugvwxhyz1i234j567k890laabmbccnddeoeffpgghqhiirjjksklltmmnunoovppqwqrrxsstytuuzvvw0wxx1yyz2z113223434455666777889890091abc2def3ghi4jkl5mno6pqr7stu8vwx9yz11aab2bcc3dd4ee5ff6gg7hh8ii9j0jk1kl2lmm3nnoo4p5pq6qrr7ss8tt9uuvv0wwx1x2yyzz13aba4cbcb5dcdc6dedfef8egf9gfh0ghg1ihi2hji3jik4jkj5lkl6kml7mln8mnm9ono -->
-<html xmlns="http://www.w3.org/1999/xhtml" <?php if ( function_exists( 'language_attributes' ) ) language_attributes(); ?>>
+<html xmlns="http://www.w3.org/1999/xhtml" <?php if ( function_exists( 'language_attributes' ) && function_exists( 'is_rtl' ) ) language_attributes(); else echo "dir='$text_direction'"; ?>>
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 	<title><?php echo $title ?></title>
@@ -2978,6 +3004,24 @@ function wp_parse_id_list( $list ) {
 }
 
 /**
+ * Extract a slice of an array, given a list of keys
+ *
+ * @since 3.1.0
+ *
+ * @param array $array The original array
+ * @param array $keys The list of keys
+ * @return array The array slice
+ */
+function wp_array_slice_assoc( $array, $keys ) {
+	$slice = array();
+	foreach ( $keys as $key )
+		if ( isset( $array[ $key ] ) )
+			$slice[ $key ] = $array[ $key ];
+
+	return $slice;
+}
+
+/**
  * Filters a list of objects, based on a set of key => value arguments
  *
  * @since 3.0.0
@@ -2990,30 +3034,70 @@ function wp_parse_id_list( $list ) {
  * @return array A list of objects or object fields
  */
 function wp_filter_object_list( $list, $args = array(), $operator = 'and', $field = false ) {
-	if ( !is_array($list) )
+	if ( ! is_array( $list ) )
 		return array();
 
-	if ( empty($args) )
-		$args = array();
+	$list = wp_list_filter( $list, $args, $operator );
 
-	if ( empty($args) && !$field )
-		return $list;	// nothing to do
+	if ( $field )
+		$list = wp_list_pluck( $list, $field );
 
-	$count = count($args);
+	return $list;
+}
 
+/**
+ * Filters a list of objects, based on a set of key => value arguments
+ *
+ * @since 3.1.0
+ *
+ * @param array $list An array of objects to filter
+ * @param array $args An array of key => value arguments to match against each object
+ * @param string $operator The logical operation to perform:
+ *    'AND' means all elements from the array must match;
+ *    'OR' means only one element needs to match;
+ *    'NOT' means no elements may match.
+ *   The default is 'AND'.
+ * @return array
+ */
+function wp_list_filter( $list, $args = array(), $operator = 'AND' ) {
+	if ( ! is_array( $list ) )
+		return array();
+
+	if ( empty( $args ) )
+		return $list;
+
+	$operator = strtoupper( $operator );
+	$count = count( $args );
 	$filtered = array();
 
 	foreach ( $list as $key => $obj ) {
-		$matched = count(array_intersect_assoc(get_object_vars($obj), $args));
-		if ( ('and' == $operator && $matched == $count) || ('or' == $operator && $matched <= $count) ) {
-			if ( $field )
-				$filtered[] = $obj->$field;
-			else
-				$filtered[$key] = $obj;
+		$matched = count( array_intersect_assoc( (array) $obj, $args ) );
+		if ( ( 'AND' == $operator && $matched == $count )
+		  || ( 'OR' == $operator && $matched <= $count )
+		  || ( 'NOT' == $operator && 0 == $matched ) ) {
+			$filtered[$key] = $obj;
 		}
 	}
 
 	return $filtered;
+}
+
+/**
+ * Pluck a certain field out of each object in a list
+ *
+ * @since 3.1.0
+ *
+ * @param array $list A list of objects or arrays
+ * @param int|string $field A field from the object to place instead of the entire object
+ * @return array
+ */
+function wp_list_pluck( $list, $field ) {
+	foreach ( $list as $key => $value ) {
+		$value = (array) $value;
+		$list[ $key ] = $value[ $field ];
+	}
+
+	return $list;
 }
 
 /**
@@ -3069,24 +3153,6 @@ function wp_ob_end_flush_all() {
 	$levels = ob_get_level();
 	for ($i=0; $i<$levels; $i++)
 		ob_end_flush();
-}
-
-/**
- * Load the correct database class file.
- *
- * This function is used to load the database class file either at runtime or by
- * wp-admin/setup-config.php We must globalise $wpdb to ensure that it is
- * defined globally by the inline code in wp-db.php.
- *
- * @since 2.5.0
- * @global $wpdb WordPress Database Object
- */
-function require_wp_db() {
-	global $wpdb;
-	if ( file_exists( WP_CONTENT_DIR . '/db.php' ) )
-		require_once( WP_CONTENT_DIR . '/db.php' );
-	else
-		require_once( ABSPATH . WPINC . '/wp-db.php' );
 }
 
 /**
@@ -3209,9 +3275,9 @@ function atom_service_url_filter($url)
  * to get the backtrace up to what file and function called the deprecated
  * function.
  *
- * The current behavior is to trigger an user error if WP_DEBUG is true.
+ * The current behavior is to trigger a user error if WP_DEBUG is true.
  *
- * This function is to be used in every function in depreceated.php
+ * This function is to be used in every function that is deprecated.
  *
  * @package WordPress
  * @subpackage Debug
@@ -3247,9 +3313,9 @@ function _deprecated_function( $function, $version, $replacement=null ) {
  * to get the backtrace up to what file and function included the deprecated
  * file.
  *
- * The current behavior is to trigger an user error if WP_DEBUG is true.
+ * The current behavior is to trigger a user error if WP_DEBUG is true.
  *
- * This function is to be used in every file that is depreceated
+ * This function is to be used in every file that is deprecated.
  *
  * @package WordPress
  * @subpackage Debug
@@ -3295,7 +3361,7 @@ function _deprecated_file( $file, $version, $replacement = null, $message = '' )
  * to get the backtrace up to what file and function used the deprecated
  * argument.
  *
- * The current behavior is to trigger an user error if WP_DEBUG is true.
+ * The current behavior is to trigger a user error if WP_DEBUG is true.
  *
  * @package WordPress
  * @subpackage Debug
@@ -3321,6 +3387,39 @@ function _deprecated_argument( $function, $version, $message = null ) {
 			trigger_error( sprintf( __('%1$s was called with an argument that is <strong>deprecated</strong> since version %2$s! %3$s'), $function, $version, $message ) );
 		else
 			trigger_error( sprintf( __('%1$s was called with an argument that is <strong>deprecated</strong> since version %2$s with no alternative available.'), $function, $version ) );
+	}
+}
+
+/**
+ * Marks something as being incorrectly called.
+ *
+ * There is a hook doing_it_wrong_run that will be called that can be used
+ * to get the backtrace up to what file and function called the deprecated
+ * function.
+ *
+ * The current behavior is to trigger a user error if WP_DEBUG is true.
+ *
+ * @package WordPress
+ * @subpackage Debug
+ * @since 3.1.0
+ * @access private
+ *
+ * @uses do_action() Calls 'doing_it_wrong_run' and passes the function arguments.
+ * @uses apply_filters() Calls 'doing_it_wrong_trigger_error' and expects boolean value of true to do
+ *   trigger or false to not trigger error.
+ *
+ * @param string $function The function that was called.
+ * @param string $message A message explaining what has been done incorrectly.
+ * @param string $version The version of WordPress where the message was added.
+ */
+function _doing_it_wrong( $function, $message, $version ) {
+
+	do_action( 'doing_it_wrong_run', $function, $message, $version );
+
+	// Allow plugin to filter the output error trigger
+	if ( WP_DEBUG && apply_filters( 'doing_it_wrong_trigger_error', true ) ) {
+		$version = is_null( $version ) ? '' : sprintf( __( '(This message was added in version %s.)' ), $version );
+		trigger_error( sprintf( __( '%1$s was called <strong>incorrectly</strong>. %2$s %3$s' ), $function, $message, $version ) );
 	}
 }
 
@@ -3364,6 +3463,34 @@ function apache_mod_loaded($mod, $default = false) {
 				return true;
 	}
 	return $default;
+}
+
+/**
+ * Check if IIS 7 supports pretty permalinks
+ *
+ * @since 2.8.0
+ *
+ * @return bool
+ */
+function iis7_supports_permalinks() {
+	global $is_iis7;
+
+	$supports_permalinks = false;
+	if ( $is_iis7 ) {
+		/* First we check if the DOMDocument class exists. If it does not exist,
+		 * which is the case for PHP 4.X, then we cannot easily update the xml configuration file,
+		 * hence we just bail out and tell user that pretty permalinks cannot be used.
+		 * This is not a big issue because PHP 4.X is going to be depricated and for IIS it
+		 * is recommended to use PHP 5.X NTS.
+		 * Next we check if the URL Rewrite Module 1.1 is loaded and enabled for the web site. When
+		 * URL Rewrite 1.1 is loaded it always sets a server variable called 'IIS_UrlRewriteModule'.
+		 * Lastly we make sure that PHP is running via FastCGI. This is important because if it runs
+		 * via ISAPI then pretty permalinks will not work.
+		 */
+		$supports_permalinks = class_exists('DOMDocument') && isset($_SERVER['IIS_UrlRewriteModule']) && ( php_sapi_name() == 'cgi-fcgi' );
+	}
+
+	return apply_filters('iis7_supports_permalinks', $supports_permalinks);
 }
 
 /**
@@ -3472,7 +3599,7 @@ function wp_guess_url() {
 		$schema = is_ssl() ? 'https://' : 'http://';
 		$url = preg_replace('|/wp-admin/.*|i', '', $schema . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI']);
 	}
-	return $url;
+	return rtrim($url, '/');
 }
 
 /**
@@ -3785,7 +3912,7 @@ function get_site_transient( $transient ) {
 function set_site_transient( $transient, $value, $expiration = 0 ) {
 	global $_wp_using_ext_object_cache;
 
-    $value = apply_filters( 'pre_set_site_transient_' . $transient, $value );
+	$value = apply_filters( 'pre_set_site_transient_' . $transient, $value );
 
 	if ( $_wp_using_ext_object_cache ) {
 		$result = wp_cache_set( $transient, $value, 'site-transient', $expiration );
@@ -4136,29 +4263,21 @@ function wp_scheduled_delete() {
 }
 
 /**
- * Parse the file contents to retrieve its metadata.
+ * Retrieve metadata from a file.
  *
- * Searches for metadata for a file, such as a plugin or theme.  Each piece of
- * metadata must be on its own line. For a field spanning multple lines, it
- * must not have any newlines or only parts of it will be displayed.
+ * Searches for metadata in the first 8kiB of a file, such as a plugin or theme.
+ * Each piece of metadata must be on its own line. Fields can not span multple
+ * lines, the value will get cut at the end of the first line.
  *
- * Some users have issues with opening large files and manipulating the contents
- * for want is usually the first 1kiB or 2kiB. This function stops pulling in
- * the file contents when it has all of the required data.
+ * If the file data is not within that first 8kiB, then the author should correct
+ * their plugin file and move the data headers to the top.
  *
- * The first 8kiB of the file will be pulled in and if the file data is not
- * within that first 8kiB, then the author should correct their plugin file
- * and move the data headers to the top.
- *
- * The file is assumed to have permissions to allow for scripts to read
- * the file. This is not checked however and the file is only opened for
- * reading.
+ * @see http://codex.wordpress.org/File_Header
  *
  * @since 2.9.0
- *
  * @param string $file Path to the file
- * @param bool $markup If the returned data should have HTML markup applied
- * @param string $context If specified adds filter hook "extra_<$context>_headers"
+ * @param array $default_headers List of headers, in the format array('HeaderKey' => 'Header Name')
+ * @param string $context If specified adds filter hook "extra_{$context}_headers"
  */
 function get_file_data( $file, $default_headers, $context = '' ) {
 	// We don't need to write to the file, so just open for reading.
@@ -4171,20 +4290,19 @@ function get_file_data( $file, $default_headers, $context = '' ) {
 	fclose( $fp );
 
 	if ( $context != '' ) {
-		$extra_headers = apply_filters( "extra_$context".'_headers', array() );
+		$extra_headers = apply_filters( "extra_{$context}_headers", array() );
 
 		$extra_headers = array_flip( $extra_headers );
 		foreach( $extra_headers as $key=>$value ) {
 			$extra_headers[$key] = $key;
 		}
-		$all_headers = array_merge($extra_headers, $default_headers);
+		$all_headers = array_merge( $extra_headers, (array) $default_headers );
 	} else {
 		$all_headers = $default_headers;
 	}
 
-
 	foreach ( $all_headers as $field => $regex ) {
-		preg_match( '/' . preg_quote( $regex, '/' ) . ':(.*)$/mi', $file_data, ${$field});
+		preg_match( '/^[ \t\/*#@]*' . preg_quote( $regex, '/' ) . ':(.*)$/mi', $file_data, ${$field});
 		if ( !empty( ${$field} ) )
 			${$field} = _cleanup_header_comment( ${$field}[1] );
 		else
@@ -4195,7 +4313,8 @@ function get_file_data( $file, $default_headers, $context = '' ) {
 
 	return $file_data;
 }
-/*
+
+/**
  * Used internally to tidy up the search terms
  *
  * @access private
@@ -4295,6 +4414,72 @@ function _wp_mysql_week( $column ) {
 	case 6 :
 		return "WEEK( DATE_SUB( $column, INTERVAL $start_of_week DAY ), 0 )";
 	}
+}
+
+/**
+ * Finds hierarchy loops using a callback function that maps object IDs to parent IDs.
+ *
+ * @since 3.1.0
+ * @access private
+ *
+ * @param callback $callback function that accepts ( ID, $callback_args ) and outputs parent_ID
+ * @param int $start The ID to start the loop check at
+ * @param int $start_parent the parent_ID of $start to use instead of calling $callback( $start ). Use null to always use $callback
+ * @param array $callback_args optional additional arguments to send to $callback
+ * @return array IDs of all members of loop
+ */
+function wp_find_hierarchy_loop( $callback, $start, $start_parent, $callback_args = array() ) {
+	$override = is_null( $start_parent ) ? array() : array( $start => $start_parent );
+
+	if ( !$arbitrary_loop_member = wp_find_hierarchy_loop_tortoise_hare( $callback, $start, $override, $callback_args ) )
+		return array();
+
+	return wp_find_hierarchy_loop_tortoise_hare( $callback, $arbitrary_loop_member, $override, $callback_args, true );
+}
+
+/**
+ * Uses the "The Tortoise and the Hare" algorithm to detect loops.
+ *
+ * For every step of the algorithm, the hare takes two steps and the tortoise one.
+ * If the hare ever laps the tortoise, there must be a loop.
+ *
+ * @since 3.1.0
+ * @access private
+ *
+ * @param callback $callback function that accupts ( ID, callback_arg, ... ) and outputs parent_ID
+ * @param int $start The ID to start the loop check at
+ * @param array $override an array of ( ID => parent_ID, ... ) to use instead of $callback
+ * @param array $callback_args optional additional arguments to send to $callback
+ * @param bool $_return_loop Return loop members or just detect presence of loop?
+ *             Only set to true if you already know the given $start is part of a loop
+ *             (otherwise the returned array might include branches)
+ * @return mixed scalar ID of some arbitrary member of the loop, or array of IDs of all members of loop if $_return_loop
+ */
+function wp_find_hierarchy_loop_tortoise_hare( $callback, $start, $override = array(), $callback_args = array(), $_return_loop = false ) {
+	$tortoise = $hare = $evanescent_hare = $start;
+	$return = array();
+
+	// Set evanescent_hare to one past hare
+	// Increment hare two steps
+	while (
+		$tortoise
+	&&
+		( $evanescent_hare = isset( $override[$hare] ) ? $override[$hare] : call_user_func_array( $callback, array_merge( array( $hare ), $callback_args ) ) )
+	&&
+		( $hare = isset( $override[$evanescent_hare] ) ? $override[$evanescent_hare] : call_user_func_array( $callback, array_merge( array( $evanescent_hare ), $callback_args ) ) )
+	) {
+		if ( $_return_loop )
+			$return[$tortoise] = $return[$evanescent_hare] = $return[$hare] = true;
+
+		// tortoise got lapped - must be a loop
+		if ( $tortoise == $evanescent_hare || $tortoise == $hare )
+			return $_return_loop ? $return : $tortoise;
+
+		// Increment tortoise by one step
+		$tortoise = isset( $override[$tortoise] ) ? $override[$tortoise] : call_user_func_array( $callback, array_merge( array( $tortoise ), $callback_args ) );
+	}
+
+	return false;
 }
 
 ?>

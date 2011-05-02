@@ -13,8 +13,9 @@ class nggAdminPanel{
 	function nggAdminPanel() {
 
 		// Add the admin menu
-		add_action( 'admin_menu', array (&$this, 'add_menu') );
-		
+		add_action( 'admin_menu', array (&$this, 'add_menu') ); 
+		add_action( 'network_admin_menu', array (&$this, 'add_network_admin_menu') );
+        
 		// Add the script and style files
 		add_action('admin_print_scripts', array(&$this, 'load_scripts') );
 		add_action('admin_print_styles', array(&$this, 'load_styles') );
@@ -39,9 +40,10 @@ class nggAdminPanel{
 	    if ( wpmu_enable_function('wpmuRoles') || wpmu_site_admin() )
 			add_submenu_page( NGGFOLDER , __('Roles', 'nggallery'), __('Roles', 'nggallery'), 'activate_plugins', 'nggallery-roles', array (&$this, 'show_menu'));
 	    add_submenu_page( NGGFOLDER , __('About this Gallery', 'nggallery'), __('About', 'nggallery'), 'NextGEN Gallery overview', 'nggallery-about', array (&$this, 'show_menu'));
-		// See trac #14435 , changed for 3.1 : http://core.trac.wordpress.org/ticket/14435
-        if ( wpmu_site_admin() ) 
+		//TODO: Remove after WP 3.1 release, not longer needed 
+        if ( is_multisite() && wpmu_site_admin() ) 
 			add_submenu_page( 'ms-admin.php' , __('NextGEN Gallery', 'nggallery'), __('NextGEN Gallery', 'nggallery'), 'activate_plugins', 'nggallery-wpmu', array (&$this, 'show_menu'));
+
 	    if ( !is_multisite() || wpmu_site_admin() ) 
             add_submenu_page( NGGFOLDER , __('Reset / Uninstall', 'nggallery'), __('Reset / Uninstall', 'nggallery'), 'activate_plugins', 'nggallery-setup', array (&$this, 'show_menu'));
 
@@ -49,16 +51,25 @@ class nggAdminPanel{
 		$this->register_columns();	
 	}
 
+	// integrate the network menu	
+	function add_network_admin_menu()  {
+	
+		add_menu_page( _n( 'Gallery', 'Galleries', 1, 'nggallery' ), _n( 'Gallery', 'Galleries', 1, 'nggallery' ), 'nggallery-wpmu', NGGFOLDER, array (&$this, 'show_network_settings'), 'div' );
+		add_submenu_page( NGGFOLDER , __('Network settings', 'nggallery'), __('Network settings', 'nggallery'), 'nggallery-wpmu', NGGFOLDER,  array (&$this, 'show_network_settings'));
+        add_submenu_page( NGGFOLDER , __('Reset / Uninstall', 'nggallery'), __('Reset / Uninstall', 'nggallery'), 'activate_plugins', 'nggallery-setup', array (&$this, 'show_menu'));
+	}
+
+    // show the network page
+    function show_network_settings() {
+		include_once ( dirname (__FILE__) . '/style.php' );		
+		include_once ( dirname (__FILE__) . '/wpmu.php' );
+		nggallery_wpmu_setup();        
+    }
+
 	// load the script for the defined page and load only this code	
 	function show_menu() {
 		
 		global $ngg;
-		
-		// init PluginChecker
-		$nggCheck 			= new CheckPlugin();	
-		$nggCheck->URL 		= NGGURL;
-		$nggCheck->version 	= NGGVERSION;
-		$nggCheck->name 	= 'ngg';
 
 		// check for upgrade and show upgrade screen
 		if( get_option( 'ngg_db_version' ) != NGG_DBVERSION ) {
@@ -67,12 +78,6 @@ class nggAdminPanel{
 			nggallery_upgrade_page();
 			return;			
 		}
-		
-		// Show update message
-        if ( current_user_can('activate_plugins') )
-    		if ( $nggCheck->startCheck() && (!is_multisite()) ) {
-    			echo '<div class="plugin-update">' . __('A new version of NextGEN Gallery is available !', 'nggallery') . ' <a href="http://wordpress.org/extend/plugins/nextgen-gallery/download/" target="_blank">' . __('Download here', 'nggallery') . '</a></div>' ."\n";
-    		}
 		
 		// Set installation date
 		if( empty($ngg->options['installDate']) ) {
@@ -115,8 +120,7 @@ class nggAdminPanel{
 				// Initate the Manage Gallery page
 				$ngg->manage_page = new nggManageGallery ();
 				// Render the output now, because you cannot access a object during the constructor is not finished
-				$ngg->manage_page->controller();
-				
+				$ngg->manage_page->controller();				
 				break;
 			case "nggallery-manage-album" :
 				include_once ( dirname (__FILE__) . '/album.php' );		// nggallery_admin_manage_album
@@ -151,6 +155,7 @@ class nggAdminPanel{
 				include_once ( dirname (__FILE__) . '/about.php' );		// nggallery_admin_about
 				nggallery_admin_about();
 				break;
+            //TODO: Remove after WP 3.1 release, not longer needed   
 			case "nggallery-wpmu" :
 				include_once ( dirname (__FILE__) . '/style.php' );		
 				include_once ( dirname (__FILE__) . '/wpmu.php' );		// nggallery_wpmu_admin
@@ -165,12 +170,13 @@ class nggAdminPanel{
 	}
 	
 	function load_scripts() {
-		
+		global $wp_version;
+        
 		// no need to go on if it's not a plugin page
 		if( !isset($_GET['page']) )
 			return;
 
-		wp_register_script('ngg-ajax', NGGALLERY_URLPATH . 'admin/js/ngg.ajax.js', array('jquery'), '1.4.0');
+		wp_register_script('ngg-ajax', NGGALLERY_URLPATH . 'admin/js/ngg.ajax.js', array('jquery'), '1.4.1');
 		wp_localize_script('ngg-ajax', 'nggAjaxSetup', array(
 					'url' => admin_url('admin-ajax.php'),
 					'action' => 'ngg_ajax_operation',
@@ -181,9 +187,11 @@ class nggAdminPanel{
 					'error' => __('Unexpected Error', 'nggallery'),
 					'failure' => __('A failure occurred', 'nggallery')				
 		) );
-		wp_register_script('ngg-progressbar', NGGALLERY_URLPATH .'admin/js/ngg.progressbar.js', array('jquery'), '1.0.0');
+		wp_register_script('ngg-progressbar', NGGALLERY_URLPATH .'admin/js/ngg.progressbar.js', array('jquery'), '2.0.1');
 		wp_register_script('swfupload_f10', NGGALLERY_URLPATH .'admin/js/swfupload.js', array('jquery'), '2.2.0');
-				
+        // Until release of 3.1 not used, due to script conflict
+        wp_register_script('jquery-ui-autocomplete', NGGALLERY_URLPATH .'admin/js/jquery.ui.autocomplete.min.js', array('jquery-ui-core', 'jquery-ui-widget'), '1.8.9');
+       		
 		switch ($_GET['page']) {
 			case NGGFOLDER : 
 				wp_enqueue_script( 'postbox' );
@@ -193,25 +201,34 @@ class nggAdminPanel{
 				wp_enqueue_script( 'postbox' );
 				wp_enqueue_script( 'ngg-ajax' );
 				wp_enqueue_script( 'ngg-progressbar' );
-				//wp_enqueue_script( 'jquery-ui-dialog' );
-				//TODO:Add Inline edit later
-				//wp_enqueue_script( 'ngg-inline-edit', NGGALLERY_URLPATH .'admin/js/ngg.inline-edit-images.js', array('jquery'), '1.0.0' );
+				wp_enqueue_script( 'jquery-ui-dialog' );
 				add_thickbox();
 			break;
 			case "nggallery-manage-album" :
-				wp_enqueue_script( 'jquery-ui-sortable' );
-				add_thickbox();
+                if ( version_compare( $wp_version, '3.0.999', '>' ) ) {
+                    wp_enqueue_script( 'jquery-ui-autocomplete' ); 
+                    wp_enqueue_script( 'jquery-ui-dialog' );
+                    wp_enqueue_script( 'jquery-ui-sortable' );
+                    wp_enqueue_script( 'ngg-autocomplete', NGGALLERY_URLPATH .'admin/js/ngg.autocomplete.js', array('jquery-ui-autocomplete'), '1.0');
+                 } else {
+                    // Due to script conflict with jQuery UI 1.8.6
+                    wp_deregister_script( 'jquery-ui-sortable' );
+                    // Package included sortable, dialog, autocomplete, tabs
+                    wp_enqueue_script('jquery-ui', NGGALLERY_URLPATH .'admin/js/jquery-ui-1.8.6.min.js', array('jquery'), '1.8.6');
+                    wp_enqueue_script('ngg-autocomplete', NGGALLERY_URLPATH .'admin/js/ngg.autocomplete.js', array('jquery-ui'), '1.0');
+                }                
 			break;
 			case "nggallery-options" :
 				wp_enqueue_script( 'jquery-ui-tabs' );
-				wp_enqueue_script( 'ngg-colorpicker', NGGALLERY_URLPATH .'admin/js/colorpicker/js/colorpicker.js', array('jquery'), '1.0');
+				//wp_enqueue_script( 'ngg-colorpicker', NGGALLERY_URLPATH .'admin/js/colorpicker/js/colorpicker.js', array('jquery'), '1.0');
 			break;		
 			case "nggallery-add-gallery" :
 				wp_enqueue_script( 'jquery-ui-tabs' );
 				wp_enqueue_script( 'mutlifile', NGGALLERY_URLPATH .'admin/js/jquery.MultiFile.js', array('jquery'), '1.4.4' );
-				wp_enqueue_script( 'ngg-swfupload-handler', NGGALLERY_URLPATH .'admin/js/swfupload.handler.js', array('swfupload_f10'), '1.0.0' );
+				wp_enqueue_script( 'ngg-swfupload-handler', NGGALLERY_URLPATH .'admin/js/swfupload.handler.js', array('swfupload_f10'), '1.0.3' );
 				wp_enqueue_script( 'ngg-ajax' );
 				wp_enqueue_script( 'ngg-progressbar' );
+                wp_enqueue_script( 'jquery-ui-dialog' );
 				wp_enqueue_script( 'jqueryFileTree', NGGALLERY_URLPATH .'admin/js/jqueryFileTree/jqueryFileTree.js', array('jquery'), '1.0.1' );
 			break;
 			case "nggallery-style" :
@@ -223,31 +240,35 @@ class nggAdminPanel{
 	}		
 	
 	function load_styles() {
-
+        // load the icon for the navigation menu
         wp_enqueue_style( 'nggmenu', NGGALLERY_URLPATH .'admin/css/menu.css', array() );
-		
-		// no need to go on if it's not a plugin page
+		wp_register_style( 'nggadmin', NGGALLERY_URLPATH .'admin/css/nggadmin.css', false, '2.8.1', 'screen' );
+		wp_register_style( 'ngg-jqueryui', NGGALLERY_URLPATH .'admin/css/jquery.ui.css', false, '1.8.5', 'screen' );
+        
+        // no need to go on if it's not a plugin page
 		if( !isset($_GET['page']) )
 			return;
 
 		switch ($_GET['page']) {
 			case NGGFOLDER :
-				wp_enqueue_style( 'thickbox');	
+				wp_enqueue_style( 'thickbox' );	
 			case "nggallery-about" :
-				wp_enqueue_style( 'nggadmin', NGGALLERY_URLPATH .'admin/css/nggadmin.css', false, '2.8.1', 'screen' );
+				wp_enqueue_style( 'nggadmin' );
                 wp_admin_css( 'css/dashboard' );
 			break;
 			case "nggallery-add-gallery" :
+				wp_enqueue_style( 'ngg-jqueryui' );
 				wp_enqueue_style( 'jqueryFileTree', NGGALLERY_URLPATH .'admin/js/jqueryFileTree/jqueryFileTree.css', false, '1.0.1', 'screen' );
 			case "nggallery-options" :
 				wp_enqueue_style( 'nggtabs', NGGALLERY_URLPATH .'admin/css/jquery.ui.tabs.css', false, '2.5.0', 'screen' );
-				wp_enqueue_style( 'nggcolorpicker', NGGALLERY_URLPATH .'admin/js/colorpicker/css/colorpicker.css', false, '1.0', 'screen');
+				wp_enqueue_style( 'nggadmin' );
+            break;    
 			case "nggallery-manage-gallery" :
 			case "nggallery-roles" :
 			case "nggallery-manage-album" :
-				//wp_enqueue_style( 'jqueryui', NGGALLERY_URLPATH .'admin/css/jquery-ui.css', false, '1.7.1', 'screen' );
-				wp_enqueue_style( 'nggadmin', NGGALLERY_URLPATH .'admin/css/nggadmin.css', false, '2.8.1', 'screen' );
-				wp_enqueue_style( 'thickbox');			
+				wp_enqueue_style( 'ngg-jqueryui' );
+				wp_enqueue_style( 'nggadmin' );
+				wp_enqueue_style( 'thickbox' );			
 			break;
 			case "nggallery-tags" :
 				wp_enqueue_style( 'nggtags', NGGALLERY_URLPATH .'admin/css/tags-admin.css', false, '2.6.1', 'screen' );
@@ -371,7 +392,11 @@ class nggAdminPanel{
 	function register_columns() {
 		include_once ( dirname (__FILE__) . '/manage-images.php' );
 		
-		$this->register_column_headers('nggallery-manage-images', ngg_manage_gallery_columns() );	
+		$this->register_column_headers('nggallery-manage-images', ngg_manage_image_columns() );
+		
+		include_once ( dirname (__FILE__) . '/manage-galleries.php' );
+		
+		$this->register_column_headers('nggallery-manage-galleries', ngg_manage_gallery_columns() );	
 	}
 
 	/**
@@ -423,97 +448,6 @@ function wpmu_enable_function($value) {
 	}
 	// if this is not WPMU, enable it !
 	return true;
-}
-
-/**
- * WordPress PHP class to check for a new version.
- * @author Alex Rabe
- * @version 1.50
- *
- // Dashboard update notification example
-	function myPlugin_update_dashboard() {
-	  $Check = new CheckPlugin();	
-	  $Check->URL 	= "YOUR URL";
-	  $Check->version = "1.00";
-	  $Check->name 	= "myPlugin";
-	  if ($Check->startCheck()) {
- 	    echo '<h3>Update Information</h3>';
-	    echo '<p>A new version is available</p>';
-	  } 
-	}
-	
-	add_action('activity_box_end', 'myPlugin_update_dashboard', '0');
- *
- */
-if ( !class_exists( "CheckPlugin" ) ) {  
-	class CheckPlugin {
-		/**
-		 * URL with the version of the plugin
-		 * @var string
-		 */
-		var $URL = 'myURL';
-		/**
-		 * Version of thsi programm or plugin
-		 * @var string
-		 */
-		var $version = '1.00';
-		/**
-		 * Name of the plugin (will be used in the options table)
-		 * @var string
-		 */
-		var $name = 'myPlugin';
-		/**
-		 * Waiting period until the next check in seconds
-		 * @var int
-		 */
-		var $period = 86400;					
-					
-		/**
-		 * check for a new version, returns true if a version is avaiable
-		 */
-		function startCheck() {
-
-			// If we know that a update exists, don't check it again
-			if (get_option( $this->name . '_update_exists' ) == 'true' )
-				return true;
-
-			$check_intervall = get_option( $this->name . '_next_update' );
-
-			if ( ($check_intervall < time() ) or (empty($check_intervall)) ) {
-				
-				// Do not bother the server to often
-				$check_intervall = time() + $this->period;
-				update_option( $this->name . '_next_update', $check_intervall );
-				
-				if ( function_exists('wp_remote_request') ) {
-					
-					$options = array();
-					$options['headers'] = array(
-						'User-Agent' => 'NextGEN Gallery Version Checker V' . NGGVERSION . '; (' . get_bloginfo('url') .')'
-					 );
-					$response = wp_remote_request($this->URL, $options);
-					
-					if ( is_wp_error( $response ) )
-						return false;
-				
-					if ( 200 != $response['response']['code'] )
-						return false;
-				   	
-					$server_version = unserialize($response['body']);
-
-					if (is_array($server_version)) {
-						if ( version_compare($server_version[$this->name], $this->version, '>') ) {
-							update_option( $this->name . '_update_exists', 'true' );
-							return true;
-						}
-					} 
-						
-					delete_option( $this->name . '_update_exists' );					
-					return false;
-				}				
-			}
-		}
-	}
 }
 
 ?>

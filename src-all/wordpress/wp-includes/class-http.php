@@ -238,39 +238,39 @@ class WP_Http {
 		if ( false !== $pre )
 			return $pre;
 
-		$arrURL = parse_url($url);
+		$arrURL = parse_url( $url );
 
 		if ( empty( $url ) || empty( $arrURL['scheme'] ) )
 			return new WP_Error('http_request_failed', __('A valid URL was not provided.'));
 
 		if ( $this->block_request( $url ) )
-			return new WP_Error('http_request_failed', __('User has blocked requests through HTTP.'));
+			return new WP_Error( 'http_request_failed', __( 'User has blocked requests through HTTP.' ) );
 
 		// Determine if this is a https call and pass that on to the transport functions
 		// so that we can blacklist the transports that do not support ssl verification
 		$r['ssl'] = $arrURL['scheme'] == 'https' || $arrURL['scheme'] == 'ssl';
 
 		// Determine if this request is to OUR install of WordPress
-		$homeURL = parse_url( get_bloginfo('url') );
+		$homeURL = parse_url( get_bloginfo( 'url' ) );
 		$r['local'] = $homeURL['host'] == $arrURL['host'] || 'localhost' == $arrURL['host'];
-		unset($homeURL);
+		unset( $homeURL );
 
 		if ( is_null( $r['headers'] ) )
 			$r['headers'] = array();
 
-		if ( ! is_array($r['headers']) ) {
-			$processedHeaders = WP_Http::processHeaders($r['headers']);
+		if ( ! is_array( $r['headers'] ) ) {
+			$processedHeaders = WP_Http::processHeaders( $r['headers'] );
 			$r['headers'] = $processedHeaders['headers'];
 		}
 
-		if ( isset($r['headers']['User-Agent']) ) {
+		if ( isset( $r['headers']['User-Agent'] ) ) {
 			$r['user-agent'] = $r['headers']['User-Agent'];
-			unset($r['headers']['User-Agent']);
+			unset( $r['headers']['User-Agent'] );
 		}
 
-		if ( isset($r['headers']['user-agent']) ) {
+		if ( isset( $r['headers']['user-agent'] ) ) {
 			$r['user-agent'] = $r['headers']['user-agent'];
-			unset($r['headers']['user-agent']);
+			unset( $r['headers']['user-agent'] );
 		}
 
 		// Construct Cookie: header if any cookies are set
@@ -280,45 +280,46 @@ class WP_Http {
 			$r['headers']['Accept-Encoding'] = WP_Http_Encoding::accept_encoding();
 
 		if ( empty($r['body']) ) {
+			$r['body'] = null;
 			// Some servers fail when sending content without the content-length header being set.
 			// Also, to fix another bug, we only send when doing POST and PUT and the content-length
 			// header isn't already set.
-			if( ($r['method'] == 'POST' || $r['method'] == 'PUT') && ! isset($r['headers']['Content-Length']) )
+			if ( ($r['method'] == 'POST' || $r['method'] == 'PUT') && ! isset( $r['headers']['Content-Length'] ) )
 				$r['headers']['Content-Length'] = 0;
 
 			// The method is ambiguous, because we aren't talking about HTTP methods, the "get" in
 			// this case is simply that we aren't sending any bodies and to get the transports that
 			// don't support sending bodies along with those which do.
-			$transports = WP_Http::_getTransport($r);
+			$transports = WP_Http::_getTransport( $r );
 		} else {
 			if ( is_array( $r['body'] ) || is_object( $r['body'] ) ) {
 				if ( ! version_compare(phpversion(), '5.1.2', '>=') )
-					$r['body'] = _http_build_query($r['body'], null, '&');
+					$r['body'] = _http_build_query( $r['body'], null, '&' );
 				else
-					$r['body'] = http_build_query($r['body'], null, '&');
-				$r['headers']['Content-Type'] = 'application/x-www-form-urlencoded; charset=' . get_option('blog_charset');
-				$r['headers']['Content-Length'] = strlen($r['body']);
+					$r['body'] = http_build_query( $r['body'], null, '&' );
+				$r['headers']['Content-Type'] = 'application/x-www-form-urlencoded; charset=' . get_option( 'blog_charset' );
+				$r['headers']['Content-Length'] = strlen( $r['body'] );
 			}
 
 			if ( ! isset( $r['headers']['Content-Length'] ) && ! isset( $r['headers']['content-length'] ) )
-				$r['headers']['Content-Length'] = strlen($r['body']);
+				$r['headers']['Content-Length'] = strlen( $r['body'] );
 
 			// The method is ambiguous, because we aren't talking about HTTP methods, the "post" in
 			// this case is simply that we are sending HTTP body and to get the transports that do
 			// support sending the body. Not all do, depending on the limitations of the PHP core
 			// limitations.
-			$transports = WP_Http::_postTransport($r);
+			$transports = WP_Http::_postTransport( $r );
 		}
 
 		do_action( 'http_api_debug', $transports, 'transports_list' );
 
 		$response = array( 'headers' => array(), 'body' => '', 'response' => array('code' => false, 'message' => false), 'cookies' => array() );
 		foreach ( (array) $transports as $transport ) {
-			$response = $transport->request($url, $r);
+			$response = $transport->request( $url, $r );
 
-			do_action( 'http_api_debug', $response, 'response', get_class($transport) );
+			do_action( 'http_api_debug', $response, 'response', get_class( $transport ) );
 
-			if ( ! is_wp_error($response) )
+			if ( ! is_wp_error( $response ) )
 				return apply_filters( 'http_response', $response, $r, $url );
 		}
 
@@ -453,7 +454,7 @@ class WP_Http {
 				} else {
 					$newheaders[$key] = trim( $value );
 				}
-				if ( 'set-cookie' == strtolower( $key ) )
+				if ( 'set-cookie' == $key )
 					$cookies[] = new WP_Http_Cookie( $value );
 			}
 		}
@@ -540,10 +541,12 @@ class WP_Http {
 	 * You block external URL requests by defining WP_HTTP_BLOCK_EXTERNAL as true in your wp-config.php
 	 * file and this will only allow localhost and your blog to make requests. The constant
 	 * WP_ACCESSIBLE_HOSTS will allow additional hosts to go through for requests. The format of the
-	 * WP_ACCESSIBLE_HOSTS constant is a comma separated list of hostnames to allow.
+	 * WP_ACCESSIBLE_HOSTS constant is a comma separated list of hostnames to allow, wildcard domains
+	 * are supported, eg *.wordpress.org will allow for all subdomains of wordpress.org to be contacted.
 	 *
 	 * @since 2.8.0
 	 * @link http://core.trac.wordpress.org/ticket/8927 Allow preventing external requests.
+	 * @link http://core.trac.wordpress.org/ticket/14636 Allow wildcard domains in WP_ACCESSIBLE_HOSTS
 	 *
 	 * @param string $uri URI of url.
 	 * @return bool True to block, false to allow.
@@ -577,10 +580,25 @@ class WP_Http {
 			return true;
 
 		static $accessible_hosts;
-		if ( null == $accessible_hosts )
+		static $wildcard_regex = false;
+		if ( null == $accessible_hosts ) {
 			$accessible_hosts = preg_split('|,\s*|', WP_ACCESSIBLE_HOSTS);
 
-		return !in_array( $check['host'], $accessible_hosts ); //Inverse logic, If its in the array, then we can't access it.
+			if ( false !== strpos(WP_ACCESSIBLE_HOSTS, '*') ) {
+				$wildcard_regex = array();
+				foreach ( $accessible_hosts as $host )
+					$wildcard_regex[] = str_replace('\*', '[\w.]+?', preg_quote($host, '/'));
+				$wildcard_regex = '/^(' . implode('|', $wildcard_regex) . ')$/i';
+			}
+		}
+
+		if ( !empty($wildcard_regex) )
+			return !preg_match($wildcard_regex, $check['host']);
+		else
+			return !in_array( $check['host'], $accessible_hosts ); //Inverse logic, If its in the array, then we can't access it.
+
+
+
 	}
 }
 
@@ -621,7 +639,7 @@ class WP_Http_Fsockopen {
 		if ( isset($r['headers']['User-Agent']) ) {
 			$r['user-agent'] = $r['headers']['User-Agent'];
 			unset($r['headers']['User-Agent']);
-		} else if( isset($r['headers']['user-agent']) ) {
+		} else if ( isset($r['headers']['user-agent']) ) {
 			$r['user-agent'] = $r['headers']['user-agent'];
 			unset($r['headers']['user-agent']);
 		}
@@ -973,7 +991,7 @@ class WP_Http_Streams {
 		if ( isset($r['headers']['User-Agent']) ) {
 			$r['user-agent'] = $r['headers']['User-Agent'];
 			unset($r['headers']['User-Agent']);
-		} else if( isset($r['headers']['user-agent']) ) {
+		} else if ( isset($r['headers']['user-agent']) ) {
 			$r['user-agent'] = $r['headers']['user-agent'];
 			unset($r['headers']['user-agent']);
 		}
@@ -1120,7 +1138,7 @@ class WP_Http_Streams {
  * @subpackage HTTP
  * @since 2.7.0
  */
-class WP_Http_ExtHTTP {
+class WP_Http_ExtHttp {
 	/**
 	 * Send a HTTP request to a URI using HTTP extension.
 	 *
@@ -1146,7 +1164,7 @@ class WP_Http_ExtHTTP {
 		if ( isset($r['headers']['User-Agent']) ) {
 			$r['user-agent'] = $r['headers']['User-Agent'];
 			unset($r['headers']['User-Agent']);
-		} else if( isset($r['headers']['user-agent']) ) {
+		} else if ( isset($r['headers']['user-agent']) ) {
 			$r['user-agent'] = $r['headers']['user-agent'];
 			unset($r['headers']['user-agent']);
 		}
@@ -1296,7 +1314,7 @@ class WP_Http_Curl {
 		if ( isset($r['headers']['User-Agent']) ) {
 			$r['user-agent'] = $r['headers']['User-Agent'];
 			unset($r['headers']['User-Agent']);
-		} else if( isset($r['headers']['user-agent']) ) {
+		} else if ( isset($r['headers']['user-agent']) ) {
 			$r['user-agent'] = $r['headers']['user-agent'];
 			unset($r['headers']['user-agent']);
 		}
@@ -1408,7 +1426,7 @@ class WP_Http_Curl {
 				$theBody = substr( $theResponse, $headerLength );
 			else
 				$theBody = '';
-			if ( false !== strrpos($theHeaders, "\r\n\r\n") ) {
+			if ( false !== strpos($theHeaders, "\r\n\r\n") ) {
 				$headerParts = explode("\r\n\r\n", $theHeaders);
 				$theHeaders = $headerParts[ count($headerParts) -1 ];
 			}
@@ -1478,17 +1496,18 @@ class WP_Http_Curl {
  * <li>WP_PROXY_PASSWORD - Proxy password, if it requires authentication.</li>
  * <li>WP_PROXY_BYPASS_HOSTS - Will prevent the hosts in this list from going through the proxy.
  * You do not need to have localhost and the blog host in this list, because they will not be passed
- * through the proxy. The list should be presented in a comma separated list</li>
+ * through the proxy. The list should be presented in a comma separated list, wildcards using * are supported, eg. *.wordpress.org</li>
  * </ol>
  *
  * An example can be as seen below.
  * <code>
  * define('WP_PROXY_HOST', '192.168.84.101');
  * define('WP_PROXY_PORT', '8080');
- * define('WP_PROXY_BYPASS_HOSTS', 'localhost, www.example.com');
+ * define('WP_PROXY_BYPASS_HOSTS', 'localhost, www.example.com, *.wordpress.org');
  * </code>
  *
  * @link http://core.trac.wordpress.org/ticket/4011 Proxy support ticket in WordPress.
+ * @link http://core.trac.wordpress.org/ticket/14636 Allow wildcard domains in WP_PROXY_BYPASS_HOSTS
  * @since 2.8
  */
 class WP_HTTP_Proxy {
@@ -1605,7 +1624,7 @@ class WP_HTTP_Proxy {
 	 * hosts that won't be sent through the proxy.
 	 *
 	 * @uses WP_PROXY_BYPASS_HOSTS
-	 * @since unknown
+	 * @since 2.8.0
 	 *
 	 * @param string $uri URI to check.
 	 * @return bool True, to send through the proxy and false if, the proxy should not be used.
@@ -1628,10 +1647,22 @@ class WP_HTTP_Proxy {
 			return true;
 
 		static $bypass_hosts;
-		if ( null == $bypass_hosts )
+		static $wildcard_regex = false;
+		if ( null == $bypass_hosts ) {
 			$bypass_hosts = preg_split('|,\s*|', WP_PROXY_BYPASS_HOSTS);
 
-		return !in_array( $check['host'], $bypass_hosts );
+			if ( false !== strpos(WP_PROXY_BYPASS_HOSTS, '*') ) {
+				$wildcard_regex = array();
+				foreach ( $bypass_hosts as $host )
+					$wildcard_regex[] = str_replace('\*', '[\w.]+?', preg_quote($host, '/'));
+				$wildcard_regex = '/^(' . implode('|', $wildcard_regex) . ')$/i';
+			}
+		}
+
+		if ( !empty($wildcard_regex) )
+			return !preg_match($wildcard_regex, $check['host']);
+		else
+			return !in_array( $check['host'], $bypass_hosts );
 	}
 }
 /**

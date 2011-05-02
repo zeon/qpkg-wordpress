@@ -4,11 +4,11 @@ Plugin Name: NextGEN Gallery
 Plugin URI: http://alexrabe.de/?page_id=80
 Description: A NextGENeration Photo gallery for the Web 2.0.
 Author: Alex Rabe
-Version: 1.6.2
+Version: 1.7.4
 
 Author URI: http://alexrabe.de/
 
-Copyright 2007-2010 by Alex Rabe & NextGEN DEV-Team
+Copyright 2007-2011 by Alex Rabe & NextGEN DEV-Team
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -34,10 +34,9 @@ if(preg_match('#' . basename(__FILE__) . '#', $_SERVER['PHP_SELF'])) { die('You 
 if (!class_exists('nggLoader')) {
 class nggLoader {
 	
-	var $version     = '1.6.2';
-	var $dbversion   = '1.6.0';
+	var $version     = '1.7.4';
+	var $dbversion   = '1.7.0';
 	var $minium_WP   = '3.0';
-	var $updateURL   = 'http://nextgen.boelinger.com/version.php';
 	var $donators    = 'http://nextgen.boelinger.com/donators.php';
 	var $options     = '';
 	var $manage_page;
@@ -80,7 +79,10 @@ class nggLoader {
 			add_filter('transient_update_plugins', array(&$this, 'disable_upgrade'));
 		
 		//Add some links on the plugin page
-		add_filter('plugin_row_meta', array(&$this, 'add_plugin_links'), 10, 2);	
+		add_filter('plugin_row_meta', array(&$this, 'add_plugin_links'), 10, 2);
+        
+        // Check for the header / footer
+        add_action( 'init', array(&$this, 'test_head_footer_init' ) );	
 		
 	}
 	
@@ -93,7 +95,7 @@ class nggLoader {
 		
 		// All credits to the tranlator 
 		$this->translator  = '<p class="hint">'. __('<strong>Translation by : </strong><a target="_blank" href="http://alexrabe.de/wordpress-plugins/nextgen-gallery/languages/">See here</a>', 'nggallery') . '</p>';
-		$this->translator .= '<p class="hint">'. __('<strong>This translation is not yet updated for Version 1.6.0</strong>. If you would like to help with translation, download the current po from the plugin folder and read <a href="http://alexrabe.de/wordpress-plugins/wordtube/translation-of-plugins/">here</a> how you can translate the plugin.', 'nggallery') . '</p>'; 
+		$this->translator .= '<p class="hint">'. __('<strong>This translation is not yet updated for Version 1.7.3</strong>. If you would like to help with translation, download the current po from the plugin folder and read <a href="http://alexrabe.de/wordpress-plugins/wordtube/translation-of-plugins/">here</a> how you can translate the plugin.', 'nggallery') . '</p>'; 
 
         // Check for upgrade
         $this->check_for_upgrade();
@@ -192,7 +194,7 @@ class nggLoader {
 				'admin_notices', 
 				create_function(
 					'', 
-					'echo \'<div id="message" class="error"><p><strong>' . __('Sorry, NextGEN Gallery works only with a Memory Limit of 16 MB higher', 'nggallery') . '</strong></p></div>\';'
+					'echo \'<div id="message" class="error"><p><strong>' . __('Sorry, NextGEN Gallery works only with a Memory Limit of 16 MB or higher', 'nggallery') . '</strong></p></div>\';'
 				)
 			);
 			return false;
@@ -249,7 +251,6 @@ class nggLoader {
 		define('NGGVERSION', $this->version);
 		// Minimum required database version
 		define('NGG_DBVERSION', $this->dbversion);
-		define('NGGURL', $this->updateURL);
 
 		// required for Windows & XAMPP
 		define('WINABSPATH', str_replace("\\", "/", ABSPATH) );
@@ -258,7 +259,7 @@ class nggLoader {
 		define('NGGFOLDER', plugin_basename( dirname(__FILE__)) );
 		
 		define('NGGALLERY_ABSPATH', trailingslashit( str_replace("\\","/", WP_PLUGIN_DIR . '/' . plugin_basename( dirname(__FILE__) ) ) ) );
-		define('NGGALLERY_URLPATH', trailingslashit( WP_PLUGIN_URL . '/' . plugin_basename( dirname(__FILE__) ) ) );
+		define('NGGALLERY_URLPATH', trailingslashit( plugins_url( '', __FILE__ ) ) );
 		
 		// look for imagerotator
 		define('NGGALLERY_IREXIST', !empty( $this->options['irURL'] ));
@@ -347,7 +348,7 @@ class nggLoader {
 			wp_enqueue_script('swfobject', NGGALLERY_URLPATH .'admin/js/swfobject.js', FALSE, '2.2');
         else {
             wp_register_script('jquery-cycle', NGGALLERY_URLPATH .'js/jquery.cycle.all.min.js', array('jquery'), '2.88');
-            wp_enqueue_script('ngg-slideshow', NGGALLERY_URLPATH .'js/ngg.slideshow.min.js', array('jquery-cycle'), '1.01'); 
+            wp_enqueue_script('ngg-slideshow', NGGALLERY_URLPATH .'js/ngg.slideshow.min.js', array('jquery-cycle'), '1.05'); 
                     
         }   
             
@@ -417,7 +418,7 @@ class nggLoader {
 		
 	function activate() {
 		global $wpdb;
-		//Since version 1.4.0 it's tested only with PHP5.2, currently we keep PHP4 support a while
+		//Starting from version 1.8.0 it's works only with PHP5.2
         //if (version_compare(PHP_VERSION, '5.2.0', '<')) { 
         //        deactivate_plugins(plugin_basename(__FILE__)); // Deactivate ourself
         //        wp_die("Sorry, but you can't run this plugin, it requires PHP 5.2 or higher."); 
@@ -481,8 +482,8 @@ class nggLoader {
 			return $option;
 
 	    if( isset($option->response[ $this_plugin ]) ){
-	        //TODO:Clear its download link, not now but maybe later
-	        //$option->response[ $this_plugin ]->package = '';
+	        //Clear it''s download link
+	        $option->response[ $this_plugin ]->package = '';
 	        
 	        //Add a notice message
 	        if ($this->add_PHP5_notice == false){
@@ -504,6 +505,18 @@ class nggLoader {
 		}
 		return $links;
 	}
+    
+    // Check for the header / footer, parts taken from Matt Martz (http://sivel.net/)
+    function test_head_footer_init() {
+    
+    	// If test-head query var exists hook into wp_head
+    	if ( isset( $_GET['test-head'] ) )
+    		add_action( 'wp_head', create_function('', 'echo \'<!--wp_head-->\';'), 99999 );
+    
+    	// If test-footer query var exists hook into wp_footer
+    	if ( isset( $_GET['test-footer'] ) )
+    		add_action( 'wp_footer', create_function('', 'echo \'<!--wp_footer-->\';'), 99999 );
+    }
 	
 }
 	// Let's start the holy plugin

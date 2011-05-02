@@ -127,7 +127,7 @@ body#theme-information {
 .feature-filter .feature-group {
 	float: left;
 	margin-bottom: 20px;
-	width: 695px;
+	width: 725px;
 }
 
 .feature-filter .feature-name {
@@ -142,4 +142,14 @@ body#theme-information {
 	list-style-type: none;
 	padding-right: 25px;
 	min-width: 145px;
+}
+
+.feature-container {
+width: 100%;
+overflow: auto;
+margin-bottom: 10px;
+}
+
+.feature-group {
+	margin-bottom: 0px !important;
 }

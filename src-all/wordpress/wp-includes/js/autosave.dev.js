@@ -21,7 +21,10 @@ jQuery(document).ready( function($) {
 			else
 				t.addClass('button-disabled');
 		});
-		$('#ajax-loading').css('visibility', 'visible');
+		if ( $(this).attr('id') == 'publish' )
+			$('#ajax-loading').css('visibility', 'visible');
+		else
+			$('#draft-ajax-loading').css('visibility', 'visible');
 	});
 
 	window.onbeforeunload = function(){
@@ -173,7 +176,7 @@ function autosave_enable_buttons() {
 	// delay that a bit to avoid some rare collisions while the DOM is being updated.
 	setTimeout(function(){
 		jQuery(':button, :submit', '#submitpost').removeAttr('disabled');
-		jQuery('#ajax-loading').css('visibility', 'hidden');
+		jQuery('.ajax-loading').css('visibility', 'hidden');
 	}, 500);
 }
 
@@ -257,8 +260,8 @@ autosave = function() {
 		post_data["excerpt"] = jQuery("#excerpt").val();
 	if ( jQuery("#post_author").size() )
 		post_data["post_author"] = jQuery("#post_author").val();
-	if ( jQuery("#parent_id").val() ) 
-		post_data["parent_id"] = jQuery("#parent_id").val(); 
+	if ( jQuery("#parent_id").val() )
+		post_data["parent_id"] = jQuery("#parent_id").val();
 	post_data["user_ID"] = jQuery("#user-id").val();
 	if ( jQuery('#auto_draft').val() == '1' )
 		post_data["auto_draft"] = '1';

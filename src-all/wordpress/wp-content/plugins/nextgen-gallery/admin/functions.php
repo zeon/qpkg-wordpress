@@ -16,27 +16,26 @@ class nggAdmin{
 	 * create a new gallery & folder
 	 * 
 	 * @class nggAdmin
-	 * @param string $gallerytitle
+	 * @param string $name of the gallery
 	 * @param string $defaultpath
 	 * @param bool $output if the function should show an error messsage or not
 	 * @return 
 	 */
-	function create_gallery($gallerytitle, $defaultpath, $output = true) {
+	function create_gallery($title, $defaultpath, $output = true) {
 
-		global $wpdb, $user_ID;
+		global $user_ID;
  
 		// get the current user ID
 		get_currentuserinfo();
 
 		//cleanup pathname
-		$galleryname = sanitize_file_name( $gallerytitle );
-		$galleryname = apply_filters('ngg_gallery_name', $galleryname);
-		$nggpath = $defaultpath . $galleryname;
+		$name = sanitize_file_name( sanitize_title($title)  );
+		$name = apply_filters('ngg_gallery_name', $name);
 		$nggRoot = WINABSPATH . $defaultpath;
 		$txt = '';
 		
 		// No gallery name ?
-		if ( empty($galleryname) ) {	
+		if ( empty($name) ) {	
 			if ($output) nggGallery::show_error( __('No valid gallery name!', 'nggallery') );
 			return false;
 		}
@@ -59,17 +58,28 @@ class nggAdmin{
 			return false;
 		}
 		
-		// 1. Create new gallery folder
-		if ( !is_dir(WINABSPATH . $nggpath) ) {
-			if ( !wp_mkdir_p (WINABSPATH . $nggpath) ) 
-				$txt  = __('Unable to create directory ', 'nggallery').$nggpath.'!<br />';
-		}
+		// 1. Check for existing folder
+		if ( is_dir(WINABSPATH . $defaultpath . $name ) ) {
+			$suffix = 1;
+			do {
+				$alt_name = substr ($name, 0, 200 - ( strlen( $suffix ) + 1 ) ) . "_$suffix";
+				$dir_check = is_dir(WINABSPATH . $defaultpath . $alt_name );
+				$suffix++;
+			} while ( $dir_check );
+			$name = $alt_name;
+		}  
+        // define relative path to gallery inside wp root folder
+        $nggpath = $defaultpath . $name;
 		
-		// 2. Check folder permission
+		// 2. Create new gallery folder
+		if ( !wp_mkdir_p (WINABSPATH . $nggpath) ) 
+		  $txt  = __('Unable to create directory ', 'nggallery').$nggpath.'!<br />';
+		
+		// 3. Check folder permission
 		if ( !is_writeable(WINABSPATH . $nggpath ) )
 			$txt .= __('Directory', 'nggallery').' <strong>'.$nggpath.'</strong> '.__('is not writeable !', 'nggallery').'<br />';
 
-		// 3. Now create "thumbs" folder inside
+		// 4. Now create thumbnail folder inside
 		if ( !is_dir(WINABSPATH . $nggpath . '/thumbs') ) {				
 			if ( !wp_mkdir_p ( WINABSPATH . $nggpath . '/thumbs') ) 
 				$txt .= __('Unable to create directory ', 'nggallery').' <strong>' . $nggpath . '/thumbs !</strong>';
@@ -92,34 +102,26 @@ class nggAdmin{
 			if ($output) nggGallery::show_error($txt);
 			return false;
 		}
-		
-		$result = $wpdb->get_var("SELECT name FROM $wpdb->nggallery WHERE name = '$galleryname' ");
-		
-		if ($result) {
-			if ($output) nggGallery::show_error( _n( 'Gallery', 'Galleries', 1, 'nggallery' ) .' <strong>' . $galleryname . '</strong> '.__('already exists', 'nggallery'));
-			return false;			
-		} else { 
-			$result = $wpdb->query( $wpdb->prepare("INSERT INTO $wpdb->nggallery (name, path, title, author) VALUES (%s, %s, %s, %s)", $galleryname, $nggpath, $gallerytitle , $user_ID) );
-			// and give me the new id
-			$gallery_id = (int) $wpdb->insert_id;
-			// here you can inject a custom function
-			do_action('ngg_created_new_gallery', $gallery_id);
+        
+        // now add the gallery to the database
+        $galleryID = nggdb::add_gallery($title, $nggpath, '', 0, 0, $user_ID );
+		// here you can inject a custom function
+		do_action('ngg_created_new_gallery', $galleryID);
 
-			// return only the id if defined
-			if ($output == false)
-				return $gallery_id;
-				
-			if ($result) {
-				$message  = __('Gallery %1$s successfully created.<br/>You can show this gallery with the tag %2$s.<br/>','nggallery');
-				$message  = sprintf($message, $galleryname, '[nggallery id=' . $gallery_id . ']');
-				$message .= '<a href="' . admin_url() . 'admin.php?page=nggallery-manage-gallery&mode=edit&gid=' . $gallery_id . '" >';
-				$message .= __('Edit gallery','nggallery');
-				$message .= '</a>';
-				
-				if ($output) nggGallery::show_message($message); 
-			}
-			return true;
-		} 
+		// return only the id if defined
+		if ($output == false)
+			return $galleryID;
+			
+		if ($galleryID != false) {
+			$message  = __('Gallery ID %1$s successfully created. You can show this gallery in your post or page with the shortcode %2$s.<br/>','nggallery');
+			$message  = sprintf($message, $galleryID, '<strong>[nggallery id=' . $galleryID . ']</strong>');
+			$message .= '<a href="' . admin_url() . 'admin.php?page=nggallery-manage-gallery&mode=edit&gid=' . $galleryID . '" >';
+			$message .= __('Edit gallery','nggallery');
+			$message .= '</a>';
+			
+			if ($output) nggGallery::show_message($message); 
+		}
+		return true;
 	}
 	
 	/**
@@ -585,12 +587,10 @@ class nggAdmin{
 				// strip off the extension of the filename
 				$path_parts = pathinfo( $picture );
 				$alttext = ( !isset($path_parts['filename']) ) ? substr($path_parts['basename'], 0,strpos($path_parts['basename'], '.')) : $path_parts['filename'];
-				// save it to the database 
-				$result = $wpdb->query( $wpdb->prepare("INSERT INTO $wpdb->nggpictures (galleryid, filename, alttext, exclude) VALUES (%s, %s, %s, 0)", $galleryID, $picture, $alttext) );
-				// and give me the new id
-				$pic_id = (int) $wpdb->insert_id;
-				
-				if ($result) 
+				// save it to the database
+                $pic_id = nggdb::add_image( $galleryID, $picture, '', $alttext ); 
+
+				if ( !empty($pic_id) ) 
 					$image_ids[] = $pic_id;
 
 				// add the metadata
@@ -710,6 +710,8 @@ class nggAdmin{
 		$meta['timestamp'] = $pdata->get_date_time();
 		// this contain other useful meta information
 		$meta['common'] = $pdata->get_common_meta();
+        // hook for addon plugin to add more meta fields
+        $meta = apply_filters('ngg_get_image_metadata', $meta, $pdata);
 		
 		return $meta;
 		
@@ -851,7 +853,7 @@ class nggAdmin{
 				// check if file is a zip file
 				if ( !preg_match('/(zip|download|octet-stream)/i', $_FILES['zipfile']['type']) ) {
 					@unlink($temp_zipfile); // del temp file
-					nggGallery::show_error(__('Uploaded file was no or a faulty zip file ! The server recognize : ','nggallery').$_FILES['zipfile']['type']);
+					nggGallery::show_error(__('Uploaded file was no or a faulty zip file ! The server recognized : ','nggallery').$_FILES['zipfile']['type']);
 					return false; 
 				}
 			}
@@ -978,12 +980,12 @@ class nggAdmin{
 					
 					// save temp file to gallery
 					if ( !@move_uploaded_file($temp_file, $dest_file) ){
-						nggGallery::show_error(__('Error, the file could not moved to : ','nggallery') . $dest_file);
+						nggGallery::show_error(__('Error, the file could not be moved to : ','nggallery') . $dest_file);
 						nggAdmin::check_safemode( $gallery->abspath );		
 						continue;
 					} 
 					if ( !nggAdmin::chmod($dest_file) ) {
-						nggGallery::show_error(__('Error, the file permissions could not set','nggallery'));
+						nggGallery::show_error(__('Error, the file permissions could not be set','nggallery'));
 						continue;
 					}
 					
@@ -1067,11 +1069,11 @@ class nggAdmin{
 		// save temp file to gallery
 		if ( !@move_uploaded_file($_FILES["Filedata"]['tmp_name'], $dest_file) ){
 			nggAdmin::check_safemode(WINABSPATH.$gallerypath);	
-			return __('Error, the file could not moved to : ','nggallery').$dest_file;
+			return __('Error, the file could not be moved to : ','nggallery').$dest_file;
 		} 
 		
 		if ( !nggAdmin::chmod($dest_file) )
-			return __('Error, the file permissions could not set','nggallery');
+			return __('Error, the file permissions could not be set','nggallery');
 		
 		return '0';
 	}	
@@ -1230,6 +1232,8 @@ class nggAdmin{
 	 * @return void
 	 */
 	function copy_images($pic_ids, $dest_gid) {
+	   
+        require_once(NGGALLERY_ABSPATH . '/lib/meta.php');
 		
 		$errors = $messages = '';
 		
@@ -1292,6 +1296,10 @@ class nggAdmin{
 				
 			// Copy tags
 			nggTags::copy_tags($image->pid, $new_pid);
+            
+            // Copy meta information
+            $meta = new nggMeta($image->pid);
+            nggdb::update_image_meta( $new_pid, $meta->image->meta_data);
 			
 			if ( $tmp_prefix != '' ) {
 				$messages .= sprintf(__('Image %1$s (%2$s) copied as image %3$s (%4$s) &raquo; The file already existed in the destination gallery.','nggallery'),
@@ -1352,8 +1360,6 @@ class nggAdmin{
 				nggAjax.init( nggAjaxOptions );
 			} );
 		</script>
-		
-		<div id="progressbar_container" class="wrap"></div>
 		
 		<?php	
 	}

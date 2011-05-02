@@ -8,7 +8,6 @@ if(preg_match('#' . basename(__FILE__) . '#', $_SERVER['PHP_SELF'])) { die('You 
  * @return mixed content
  */
 function nggallery_admin_overview()  {
-    
 	?>
 	<div class="wrap ngg-wrap">
         <?php screen_icon( 'nextgen-gallery' ); ?>
@@ -91,6 +90,7 @@ if ( !(get_locale() == 'en_US') )
 add_meta_box('dashboard_primary', __('Latest News', 'nggallery'), 'ngg_widget_overview_news', 'ngg_overview', 'left', 'core');
 add_meta_box('ngg_lastdonators', __('Recent donators', 'nggallery'), 'ngg_widget_overview_donators', 'ngg_overview', 'right', 'core');
 if ( !is_multisite() || is_super_admin() ) {			
+    add_meta_box('ngg_plugin_check', __('Plugin Check', 'nggallery'), 'ngg_plugin_check', 'ngg_overview', 'right', 'core');
     add_meta_box('ngg_server', __('Server Settings', 'nggallery'), 'ngg_overview_server', 'ngg_overview', 'right', 'core');
     add_meta_box('dashboard_plugins', __('Related plugins', 'nggallery'), 'ngg_widget_related_plugins', 'ngg_overview', 'left', 'core');
 }
@@ -118,10 +118,215 @@ function ngg_likeThisMetaBox() {
 
 	$url = 'http://alexrabe.de/wordpress-plugins/wordtube/translation-of-plugins/';
 	echo "<li style='padding-left: 38px; background:transparent url(" . NGGALLERY_URLPATH . "admin/images/icon-translate.png ) no-repeat scroll center left; background-position: 16px 50%; text-decoration: none;'><a href='{$url}'>";
-	_e("Help to translating it.", 'nggallery');
+	_e("Help translating it.", 'nggallery');
 	echo "</a></li>";
 
 	echo '</ul>';
+}
+
+/**
+ * Ajax Check for conflict with other plugins/themes
+ * 
+ * @return void
+ */
+function ngg_plugin_check() {
+    
+    global $ngg;
+?>
+<script type="text/javascript"> 
+(function($) {
+	nggPluginCheck = {
+	
+		settings: {
+				img_run:  '<img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" class="icon" alt="started"/>',
+                img_ok:   '<img src="<?php echo esc_url( admin_url( 'images/yes.png' ) ); ?>" class="icon" alt="ok"/>',
+                img_fail: '<img src="<?php echo esc_url( admin_url( 'images/no.png' ) ); ?>" class="icon" alt="failed" />',
+                adminurl: '<?php echo esc_url( admin_url( 'admin-ajax.php' ) ); ?>',
+                domain:   '<?php echo esc_url( trailingslashit ( home_url() ) ); ?>'
+		},
+		
+        run: function( index, state ) {
+ 			ul = $('#plugin_check');
+            s = this.settings;
+            var step = 1; 
+            switch ( index ) {
+                case 1:
+                    this.check1();
+                    break;
+                case 2:
+                    this.check2( step );
+                    break;
+                case 3:
+                    this.check3();
+                    break;
+            }                      
+        },
+        
+        // this function check if the json API will work with your theme & plugins
+        check1 : function() {
+            this.start(1);
+			var req = $.ajax({
+                dataType: 'json',
+			   	url: s.domain,
+			   	data:'callback=json&format=json&method=version',
+			   	cache: false,
+			   	timeout: 10000,
+			   	success: function(msg){
+                    if (msg.version == '<?php echo $ngg->version; ?>')
+                        nggPluginCheck.success(1);
+                    else
+                        nggPluginCheck.failed(1);
+			    },
+			    error: function (msg) {
+                    nggPluginCheck.failed(1);                    
+				},
+                complete: function () {
+                    nggPluginCheck.run(2);
+                }
+			});
+            
+        },
+
+        // this function check if GD lib can create images & thumbnails
+        check2 : function( step ) {
+            if (step == 1) this.start(2);
+            var stop = false;
+			var req = $.ajax({
+                type: "POST",
+			   	url: s.adminurl,
+			   	data:"action=ngg_image_check&step=" + step,
+			   	cache: false,
+			   	timeout: 10000,
+			   	success: function(msg){
+                    if (msg.stat == 'ok') {
+                        nggPluginCheck.success(2, msg.message);
+                    } else {
+                        if (step == 1)
+                            nggPluginCheck.failed(2);
+                        stop = true;
+                    }
+                            
+			    },
+			    error: function (msg) {
+                    if (step == 1)
+                        nggPluginCheck.failed(2);
+                    stop = true;
+				},
+                complete: function () {
+                    step++;
+                    if (step <= 11 && stop == false)
+                        nggPluginCheck.check2(step);
+                    else
+                        nggPluginCheck.run(3);
+                }
+			});            
+        },
+
+        // this function check if wp_head / wp_footer is avaiable
+        check3 : function() {
+            this.start(3);
+			var req = $.ajax({
+                type: "POST",
+			   	url: s.adminurl,
+			   	data:"action=ngg_test_head_footer",
+			   	cache: false,
+			   	timeout: 10000,
+			   	success: function(msg){
+                    if (msg == 'success')
+                        nggPluginCheck.success(3);
+                    else
+                        nggPluginCheck.failed(3, msg);    
+			    },
+			    error: function (msg) {
+                    nggPluginCheck.failed(3);
+				}
+			});            
+        },
+        
+		start: function( id ) {
+            
+            s = this.settings;
+            var field = "#check" + id;
+
+            if ( ul.find(field + " img").length == 0)
+                $(field).prepend( s.img_run );
+			else
+			    $(field + " img").replaceWith( s.img_run );
+            
+            $(field + " .success").hide();
+            $(field + " .failed").hide();
+            $(field + " .default").replaceWith('<p class="default message"><?php echo esc_js( __('Running...', 'nggallery') ); ?></p> ');
+		},
+		
+		success: function( id, msg ) {
+            
+            s = this.settings;
+            var field = "#check" + id;
+
+            if ( ul.find(field + " img").length == 0)
+                $(field).prepend( s.img_ok );
+			else
+			    $(field + " img").replaceWith( s.img_ok );
+            
+            $(field + " .default").hide();
+            if (msg)
+                $(field + " .success").replaceWith('<p class="success message">' + msg +' </p> ');
+            else
+                $(field + " .success").show();	
+				
+		},
+
+		failed: function( id, msg ) {
+            
+            s = this.settings;
+            var field = "#check" + id; 
+
+            if ( ul.find(field + " img").length == 0)
+                $(field).prepend( s.img_fail );
+			else 
+			    $(field + " img").replaceWith( s.img_fail );
+                
+            $(field + " .default").hide();
+            if (msg)
+                $(field + " .failed").replaceWith('<p class="failed message">' + msg +' </p> ');
+            else
+                $(field + " .failed").show();	
+				
+		}
+
+	};
+})(jQuery);
+</script>
+<div class="dashboard-widget-holder wp_dashboard_empty">
+	<div class="ngg-dashboard-widget">
+	  	<div class="dashboard-widget-content">
+      		<ul id="plugin_check" class="settings">
+                <li id="check1">
+                    <strong><?php _e('Check plugin/theme conflict', 'nggallery'); ?></strong>
+                    <p class="default message"><?php _e('Not tested', 'nggallery'); ?></p>                   
+                    <p class="success message" style="display: none;"><?php _e('No conflict could be detected', 'nggallery'); ?></p>
+                    <p class="failed message" style="display: none;"><?php _e('Test failed, disable other plugins & switch to default theme', 'nggallery'); ?></p>
+                </li>
+                <li id="check2">
+                    <strong><?php _e('Test image function', 'nggallery'); ?></strong>
+                    <p class="default message"><?php _e('Not tested', 'nggallery'); ?></p>
+                    <p class="success message" style="display: none;"><?php _e('The plugin could create images', 'nggallery'); ?></p>
+                    <p class="failed message" style="display: none;"><?php _e('Couldn\'t create image, check your memory limit', 'nggallery'); ?></p>
+                </li>
+                <li id="check3">
+                    <strong><?php _e('Check theme compatibility', 'nggallery'); ?></strong>
+                    <p class="default message"><?php _e('Not tested', 'nggallery'); ?></p>
+                    <p class="success message" style="display: none;"><?php _e('Your theme should work fine with NextGEN Gallery', 'nggallery'); ?></p>
+                    <p class="failed message" style="display: none;"><?php _e('wp_head()/wp_footer() is missing, contact the theme author', 'nggallery'); ?></p>
+                </li>
+            </ul>
+ 			<p class="textright">
+                <input type="button" name="update" value="<?php _e('Check plugin', 'nggallery'); ?>" onclick="nggPluginCheck.run(1);" class="button-secondary" />
+			</p>
+		</div>
+    </div>
+</div>
+<?php	
 }
 
 /**

@@ -12,7 +12,7 @@ class add_nextgen_button {
 	
 	var $pluginname = 'NextGEN';
 	var $path = '';
-	var $internalVersion = 100;
+	var $internalVersion = 200;
 	
 	/**
 	 * add_nextgen_button::add_nextgen_button()

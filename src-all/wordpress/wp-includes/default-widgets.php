@@ -1,5 +1,4 @@
 <?php
-
 /**
  * Default Widgets
  *
@@ -262,9 +261,9 @@ class WP_Widget_Archives extends WP_Widget {
 ?>
 		<p><label for="<?php echo $this->get_field_id('title'); ?>"><?php _e('Title:'); ?></label> <input class="widefat" id="<?php echo $this->get_field_id('title'); ?>" name="<?php echo $this->get_field_name('title'); ?>" type="text" value="<?php echo esc_attr($title); ?>" /></p>
 		<p>
+			<input class="checkbox" type="checkbox" <?php echo $dropdown; ?> id="<?php echo $this->get_field_id('dropdown'); ?>" name="<?php echo $this->get_field_name('dropdown'); ?>" /> <label for="<?php echo $this->get_field_id('dropdown'); ?>"><?php _e('Display as dropdown'); ?></label>
+			<br/>
 			<input class="checkbox" type="checkbox" <?php echo $count; ?> id="<?php echo $this->get_field_id('count'); ?>" name="<?php echo $this->get_field_name('count'); ?>" /> <label for="<?php echo $this->get_field_id('count'); ?>"><?php _e('Show post counts'); ?></label>
-			<br />
-			<input class="checkbox" type="checkbox" <?php echo $dropdown; ?> id="<?php echo $this->get_field_id('dropdown'); ?>" name="<?php echo $this->get_field_name('dropdown'); ?>" /> <label for="<?php echo $this->get_field_id('dropdown'); ?>"><?php _e('Display as a drop down'); ?></label>
 		</p>
 <?php
 	}
@@ -399,7 +398,7 @@ class WP_Widget_Text extends WP_Widget {
 	function form( $instance ) {
 		$instance = wp_parse_args( (array) $instance, array( 'title' => '', 'text' => '' ) );
 		$title = strip_tags($instance['title']);
-		$text = format_to_edit($instance['text']);
+		$text = esc_textarea($instance['text']);
 ?>
 		<p><label for="<?php echo $this->get_field_id('title'); ?>"><?php _e('Title:'); ?></label>
 		<input class="widefat" id="<?php echo $this->get_field_id('title'); ?>" name="<?php echo $this->get_field_name('title'); ?>" type="text" value="<?php echo esc_attr($title); ?>" /></p>
@@ -491,7 +490,7 @@ class WP_Widget_Categories extends WP_Widget {
 		<input class="widefat" id="<?php echo $this->get_field_id('title'); ?>" name="<?php echo $this->get_field_name('title'); ?>" type="text" value="<?php echo $title; ?>" /></p>
 
 		<p><input type="checkbox" class="checkbox" id="<?php echo $this->get_field_id('dropdown'); ?>" name="<?php echo $this->get_field_name('dropdown'); ?>"<?php checked( $dropdown ); ?> />
-		<label for="<?php echo $this->get_field_id('dropdown'); ?>"><?php _e( 'Show as dropdown' ); ?></label><br />
+		<label for="<?php echo $this->get_field_id('dropdown'); ?>"><?php _e( 'Display as dropdown' ); ?></label><br />
 
 		<input type="checkbox" class="checkbox" id="<?php echo $this->get_field_id('count'); ?>" name="<?php echo $this->get_field_name('count'); ?>"<?php checked( $count ); ?> />
 		<label for="<?php echo $this->get_field_id('count'); ?>"><?php _e( 'Show post counts' ); ?></label><br />
@@ -535,14 +534,10 @@ class WP_Widget_Recent_Posts extends WP_Widget {
 		extract($args);
 
 		$title = apply_filters('widget_title', empty($instance['title']) ? __('Recent Posts') : $instance['title'], $instance, $this->id_base);
-		if ( !$number = (int) $instance['number'] )
-			$number = 10;
-		else if ( $number < 1 )
-			$number = 1;
-		else if ( $number > 15 )
-			$number = 15;
+		if ( ! $number = absint( $instance['number'] ) )
+ 			$number = 10;
 
-		$r = new WP_Query(array('showposts' => $number, 'nopaging' => 0, 'post_status' => 'publish', 'caller_get_posts' => 1));
+		$r = new WP_Query(array('posts_per_page' => $number, 'nopaging' => 0, 'post_status' => 'publish', 'ignore_sticky_posts' => true));
 		if ($r->have_posts()) :
 ?>
 		<?php echo $before_widget; ?>
@@ -582,8 +577,7 @@ class WP_Widget_Recent_Posts extends WP_Widget {
 
 	function form( $instance ) {
 		$title = isset($instance['title']) ? esc_attr($instance['title']) : '';
-		if ( !isset($instance['number']) || !$number = (int) $instance['number'] )
-			$number = 5;
+		$number = isset($instance['number']) ? absint($instance['number']) : 5;
 ?>
 		<p><label for="<?php echo $this->get_field_id('title'); ?>"><?php _e('Title:'); ?></label>
 		<input class="widefat" id="<?php echo $this->get_field_id('title'); ?>" name="<?php echo $this->get_field_name('title'); ?>" type="text" value="<?php echo $title; ?>" /></p>
@@ -613,7 +607,11 @@ class WP_Widget_Recent_Comments extends WP_Widget {
 		add_action( 'transition_comment_status', array(&$this, 'flush_widget_cache') );
 	}
 
-	function recent_comments_style() { ?>
+	function recent_comments_style() {
+		if ( ! current_theme_supports( 'widgets' ) // Temp hack #14876
+			|| ! apply_filters( 'show_recent_comments_widget_style', true, $this->id_base ) )
+			return;
+		?>
 	<style type="text/css">.recentcomments a{display:inline !important;padding:0 !important;margin:0 !important;}</style>
 <?php
 	}
@@ -639,10 +637,8 @@ class WP_Widget_Recent_Comments extends WP_Widget {
  		$output = '';
  		$title = apply_filters('widget_title', empty($instance['title']) ? __('Recent Comments') : $instance['title']);
 
-		if ( ! $number = (int) $instance['number'] )
+		if ( ! $number = absint( $instance['number'] ) )
  			$number = 5;
- 		else if ( $number < 1 )
- 			$number = 1;
 
 		$comments = get_comments( array( 'number' => $number, 'status' => 'approve' ) );
 		$output .= $before_widget;
@@ -666,7 +662,7 @@ class WP_Widget_Recent_Comments extends WP_Widget {
 	function update( $new_instance, $old_instance ) {
 		$instance = $old_instance;
 		$instance['title'] = strip_tags($new_instance['title']);
-		$instance['number'] = (int) $new_instance['number'];
+		$instance['number'] = absint( $new_instance['number'] );
 		$this->flush_widget_cache();
 
 		$alloptions = wp_cache_get( 'alloptions', 'options' );
@@ -714,6 +710,10 @@ class WP_Widget_RSS extends WP_Widget {
 			$url = substr($url, 1);
 
 		if ( empty($url) )
+			return;
+
+		// self-url destruction sequence
+		if ( $url == site_url() || $url == home_url() )
 			return;
 
 		$rss = fetch_feed($url);
@@ -836,13 +836,10 @@ function wp_widget_rss_output( $rss, $args = array() ) {
 
 		$date = '';
 		if ( $show_date ) {
-			$date = $item->get_date();
+			$date = $item->get_date( 'U' );
 
 			if ( $date ) {
-				if ( $date_stamp = strtotime( $date ) )
-					$date = ' <span class="rss-date">' . date_i18n( get_option( 'date_format' ), $date_stamp ) . '</span>';
-				else
-					$date = '';
+				$date = ' <span class="rss-date">' . date_i18n( get_option( 'date_format' ), $date ) . '</span>';
 			}
 		}
 
@@ -1011,7 +1008,7 @@ class WP_Widget_Tag_Cloud extends WP_Widget {
 		echo $before_widget;
 		if ( $title )
 			echo $before_title . $title . $after_title;
-		echo '<div>';
+		echo '<div class="tagcloud">';
 		wp_tag_cloud( apply_filters('widget_tag_cloud_args', array('taxonomy' => $current_taxonomy) ) );
 		echo "</div>\n";
 		echo $after_widget;

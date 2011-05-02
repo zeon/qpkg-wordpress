@@ -21,8 +21,11 @@ foreach ( array( 'pre_term_name', 'pre_comment_author_name', 'pre_link_name', 'p
 
 // Strip, kses, special chars for string display
 foreach ( array( 'term_name', 'comment_author_name', 'link_name', 'link_target', 'link_rel', 'user_display_name', 'user_first_name', 'user_last_name', 'user_nickname' ) as $filter ) {
-	add_filter( $filter, 'sanitize_text_field'  );
-	add_filter( $filter, 'wp_kses_data'       );
+	if ( is_admin() ) {
+		// These are expensive. Run only on admin pages for defense in depth.
+		add_filter( $filter, 'sanitize_text_field'  );
+		add_filter( $filter, 'wp_kses_data'       );
+	}
 	add_filter( $filter, '_wp_specialchars', 30 );
 }
 
@@ -31,9 +34,12 @@ foreach ( array( 'pre_term_description', 'pre_link_description', 'pre_link_notes
 	add_filter( $filter, 'wp_filter_kses' );
 }
 
-// Kses only for textarea saves displays
-foreach ( array( 'term_description', 'link_description', 'link_notes', 'user_description' ) as $filter ) {
-	add_filter( $filter, 'wp_kses_data' );
+// Kses only for textarea admin displays
+if ( is_admin() ) {
+	foreach ( array( 'term_description', 'link_description', 'link_notes', 'user_description' ) as $filter ) {
+		add_filter( $filter, 'wp_kses_data' );
+	}
+	add_filter( 'comment_text', 'wp_kses_post' );
 }
 
 // Email saves
@@ -43,10 +49,11 @@ foreach ( array( 'pre_comment_author_email', 'pre_user_email' ) as $filter ) {
 	add_filter( $filter, 'wp_filter_kses' );
 }
 
-// Email display
+// Email admin display
 foreach ( array( 'comment_author_email', 'user_email' ) as $filter ) {
 	add_filter( $filter, 'sanitize_email' );
-	add_filter( $filter, 'wp_kses_data' );
+	if ( is_admin() )
+		add_filter( $filter, 'wp_kses_data' );
 }
 
 // Save URL
@@ -59,9 +66,11 @@ foreach ( array( 'pre_comment_author_url', 'pre_user_url', 'pre_link_url', 'pre_
 
 // Display URL
 foreach ( array( 'user_url', 'link_url', 'link_image', 'link_rss', 'comment_url' ) as $filter ) {
-	add_filter( $filter, 'wp_strip_all_tags' );
+	if ( is_admin() )
+		add_filter( $filter, 'wp_strip_all_tags' );
 	add_filter( $filter, 'esc_url'           );
-	add_filter( $filter, 'wp_kses_data'    );
+	if ( is_admin() )
+		add_filter( $filter, 'wp_kses_data'    );
 }
 
 // Slugs
@@ -72,6 +81,9 @@ foreach ( array( 'pre_term_slug' ) as $filter ) {
 // Keys
 foreach ( array( 'pre_post_type' ) as $filter ) {
 	add_filter( $filter, 'sanitize_user' );
+}
+foreach ( array( 'pre_post_status', 'pre_post_comment_status', 'pre_post_ping_status' ) as $filter ) {
+	add_filter( $filter, 'sanitize_key' );
 }
 
 // Places to balance tags on input
@@ -87,8 +99,9 @@ foreach ( array( 'comment_author', 'term_name', 'link_name', 'link_description',
 }
 
 // Format WordPress
-foreach ( array( 'the_content', 'the_title', 'comment_text' ) as $filter )
+foreach ( array( 'the_content', 'the_title' ) as $filter )
 	add_filter( $filter, 'capital_P_dangit', 11 );
+add_filter( 'comment_text', 'capital_P_dangit', 31 );
 
 // Format titles
 foreach ( array( 'single_post_title', 'single_cat_title', 'single_tag_title', 'single_month_title', 'nav_menu_attr_title', 'nav_menu_description' ) as $filter ) {
@@ -108,6 +121,10 @@ foreach ( array( 'term_description' ) as $filter ) {
 foreach ( array( 'term_name_rss' ) as $filter ) {
 	add_filter( $filter, 'convert_chars' );
 }
+
+// Pre save hierarchy
+add_filter( 'wp_insert_post_parent', 'wp_check_post_hierarchy_for_loops', 10, 2 );
+add_filter( 'wp_update_term_parent', 'wp_check_term_hierarchy_for_loops', 10, 3 );
 
 // Display filters
 add_filter( 'the_title', 'wptexturize'   );
@@ -138,7 +155,6 @@ add_filter( 'comment_text', 'wpautop',            30 );
 add_filter( 'comment_excerpt', 'convert_chars' );
 
 add_filter( 'list_cats',         'wptexturize' );
-add_filter( 'single_post_title', 'wptexturize' );
 
 add_filter( 'wp_sprintf', 'wp_sprintf_l', 10, 2 );
 
@@ -199,6 +215,10 @@ add_action( 'wp_footer',           'wp_print_footer_scripts'              );
 add_action( 'wp_head',             'wp_shortlink_wp_head',          10, 0 );
 add_action( 'template_redirect',   'wp_shortlink_header',           11, 0 );
 
+// Login actions
+add_action( 'login_head',          'wp_print_head_scripts',         9     );
+add_action( 'login_footer',        'wp_print_footer_scripts'              );
+
 // Feed Generator Tags
 foreach ( array( 'rss2_head', 'commentsrss2_head', 'rss_head', 'rdf_header', 'atom_head', 'comments_atom_head', 'opml_head', 'app_head' ) as $action ) {
 	add_action( $action, 'the_generator' );
@@ -252,5 +272,7 @@ add_filter( 'pre_option_gmt_offset','wp_timezone_override_offset' );
 // Admin Color Schemes
 add_action( 'admin_init', 'register_admin_color_schemes', 1);
 add_action( 'admin_color_scheme_picker', 'admin_color_scheme_picker' );
+
+unset($filter, $action);
 
 ?>

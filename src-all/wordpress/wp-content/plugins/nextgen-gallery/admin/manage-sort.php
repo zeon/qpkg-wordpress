@@ -27,6 +27,9 @@ function nggallery_sortorder($galleryID = 0){
 				$wpdb->query("UPDATE $wpdb->nggpictures SET sortorder = '$sortindex' WHERE pid = $pic_id");
 				$sortindex++;
 			}
+
+			do_action('ngg_gallery_sort', $galleryID);
+
 			nggGallery::show_message(__('Sort order changed','nggallery'));
 		} 
 	}

@@ -60,7 +60,7 @@ $whitelist_options = array(
 	'media' => array( 'thumbnail_size_w', 'thumbnail_size_h', 'thumbnail_crop', 'medium_size_w', 'medium_size_h', 'large_size_w', 'large_size_h', 'image_default_size', 'image_default_align', 'image_default_link_type', 'embed_autourls', 'embed_size_w', 'embed_size_h' ),
 	'privacy' => array( 'blog_public' ),
 	'reading' => array( 'posts_per_page', 'posts_per_rss', 'rss_use_excerpt', 'blog_charset', 'show_on_front', 'page_on_front', 'page_for_posts' ),
-	'writing' => array( 'default_post_edit_rows', 'use_smilies', 'default_category', 'default_email_category', 'use_balanceTags', 'default_link_category', 'enable_app', 'enable_xmlrpc' ),
+	'writing' => array( 'default_post_edit_rows', 'use_smilies', 'default_category', 'default_email_category', 'use_balanceTags', 'default_link_category', 'default_post_format', 'enable_app', 'enable_xmlrpc' ),
 	'options' => array( '' ) );
 
 $mail_options = array('mailserver_url', 'mailserver_port', 'mailserver_login', 'mailserver_pass');
@@ -157,7 +157,7 @@ if ( 'update' == $action ) {
 	/**
 	 * Redirect back to the settings page that was submitted
 	 */
-	$goback = add_query_arg( 'updated', 'true',  wp_get_referer() );
+	$goback = add_query_arg( 'settings-updated', 'true',  wp_get_referer() );
 	wp_redirect( $goback );
 	exit;
 }
@@ -201,7 +201,7 @@ foreach ( (array) $options as $option ) :
 	<th scope='row'><label for='$name'>" . esc_html( $option->option_name ) . "</label></th>
 <td>";
 	if ( strpos( $value, "\n" ) !== false )
-		echo "<textarea class='$class' name='$name' id='$name' cols='30' rows='5'>" . wp_htmledit_pre( $value ) . "</textarea>";
+		echo "<textarea class='$class' name='$name' id='$name' cols='30' rows='5'>" . esc_textarea( $value ) . "</textarea>";
 	else
 		echo "<input class='regular-text $class' type='text' name='$name' id='$name' value='" . esc_attr( $value ) . "'" . disabled( $disabled, true, false ) . " />";
 	echo "</td>
@@ -209,7 +209,11 @@ foreach ( (array) $options as $option ) :
 endforeach;
 ?>
   </table>
-<p class="submit"><input type="hidden" name="page_options" value="<?php echo esc_attr( implode( ',', $options_to_update ) ); ?>" /><input type="submit" name="Update" value="<?php esc_attr_e( 'Save Changes' ); ?>" class="button-primary" /></p>
+
+<input type="hidden" name="page_options" value="<?php echo esc_attr( implode( ',', $options_to_update ) ); ?>" />
+
+<?php submit_button( __( 'Save Changes' ), 'primary', 'Update' ); ?>
+
   </form>
 </div>
 

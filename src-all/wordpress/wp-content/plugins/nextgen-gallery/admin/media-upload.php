@@ -70,12 +70,10 @@ function media_upload_nextgen_save_image() {
 		
 		if ( !empty($_POST['image']) ) foreach ( $_POST['image'] as $image_id => $image ) {
 		
-		// Function save desription
-		$alttext   		= esc_attr($image['alttext']);
-		$description    = esc_attr($image['description']);
-		
-		$wpdb->query("UPDATE $wpdb->nggpictures SET alttext= '$alttext', description = '$description' WHERE pid = '$image_id'");
-
+    		// create a unique slug
+            $image_slug = nggdb::get_unique_slug( sanitize_title( $image['alttext'] ), 'image' ); 
+    		$wpdb->query( $wpdb->prepare ("UPDATE $wpdb->nggpictures SET image_slug= '%s', alttext= '%s', description = '%s' WHERE pid = %d", $image_slug, $image['alttext'], $image['description'], $image_id));
+            wp_cache_delete($image_id, 'ngg_image');
 	}
 }
 

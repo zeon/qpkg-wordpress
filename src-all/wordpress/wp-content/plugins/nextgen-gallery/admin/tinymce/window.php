@@ -1,16 +1,12 @@
 <?php
 
-// look up for the path
-require_once( dirname( dirname( dirname(__FILE__) ) ) . '/ngg-config.php');
-
-// check for rights
-if ( !current_user_can('edit_pages') && !current_user_can('edit_posts') ) 
-	wp_die(__("You are not allowed to be here"));
-
+if ( !defined('ABSPATH') )
+    die('You are not allowed to call this page directly.');
+    
 global $wpdb, $nggdb;
 
+@header('Content-Type: ' . get_option('html_type') . '; charset=' . get_option('blog_charset'));
 ?>
-
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 	<title>NextGEN Gallery</title>
@@ -18,9 +14,26 @@ global $wpdb, $nggdb;
 	<script language="javascript" type="text/javascript" src="<?php echo site_url(); ?>/wp-includes/js/tinymce/tiny_mce_popup.js"></script>
 	<script language="javascript" type="text/javascript" src="<?php echo site_url(); ?>/wp-includes/js/tinymce/utils/mctabs.js"></script>
 	<script language="javascript" type="text/javascript" src="<?php echo site_url(); ?>/wp-includes/js/tinymce/utils/form_utils.js"></script>
+	<script language="javascript" type="text/javascript" src="<?php echo site_url(); ?>/wp-includes/js/jquery/jquery.js"></script>
+    <script language="javascript" type="text/javascript" src="<?php echo NGGALLERY_URLPATH ?>admin/js/jquery-ui-1.8.6.min.js"></script>
+    <script language="javascript" type="text/javascript" src="<?php echo NGGALLERY_URLPATH ?>admin/js/ngg.autocomplete.js"></script>
 	<script language="javascript" type="text/javascript" src="<?php echo NGGALLERY_URLPATH ?>admin/tinymce/tinymce.js"></script>
-	<base target="_self" />
+    <link rel="stylesheet" type="text/css" href="<?php echo NGGALLERY_URLPATH ?>admin/css/jquery.ui.css" media="all" />
+    <base target="_self" />
 </head>
+<script type="text/javascript">
+jQuery(document).ready(function(){ 
+    jQuery("#gallerytag").nggAutocomplete( {
+        type: 'gallery',domain: "<?php echo site_url(); ?>/"
+    });
+    jQuery("#albumtag").nggAutocomplete( {
+        type: 'album',domain: "<?php echo site_url(); ?>/"
+    });
+    jQuery("#singlepictag").nggAutocomplete( {
+        type: 'image',domain: "<?php echo site_url(); ?>/"
+    });
+});
+</script>
 <body id="link" onload="tinyMCEPopup.executeOnLoad('init();');document.body.style.display='';document.getElementById('gallerytag').focus();" style="display: none">
 <!-- <form onsubmit="insertLink();return false;" action="#"> -->
 	<form name="NextGEN" action="#">
@@ -38,19 +51,11 @@ global $wpdb, $nggdb;
 		<br />
 		<table border="0" cellpadding="4" cellspacing="0">
          <tr>
-            <td nowrap="nowrap"><label for="gallerytag"><?php _e("Select gallery", 'nggallery'); ?></label></td>
+            <td nowrap="nowrap"><label for="gallerytag"><?php _e("Gallery", 'nggallery'); ?></label></td>
             <td><select id="gallerytag" name="gallerytag" style="width: 200px">
-                <option value="0"><?php _e("No gallery", 'nggallery'); ?></option>
-				<?php
-					$gallerylist = $nggdb->find_all_galleries('gid', 'DESC');
-					if(is_array($gallerylist)) {
-						foreach($gallerylist as $gallery) {
-							$name = ( empty($gallery->title) ) ? $gallery->name : $gallery->title;
-							echo '<option value="' . $gallery->gid . '" >' . $gallery->gid . ' - ' . $name . '</option>' . "\n";
-						}
-					}
-				?>
-            </select></td>
+                <option value="0" selected="selected"><?php _e("Select or enter gallery", 'nggallery'); ?></option>
+                </select>
+            </td>
           </tr>
           <tr>
             <td nowrap="nowrap" valign="top"><label for="showtype"><?php _e("Show as", 'nggallery'); ?></label></td>
@@ -67,18 +72,11 @@ global $wpdb, $nggdb;
 		<br />
 		<table border="0" cellpadding="4" cellspacing="0">
          <tr>
-            <td nowrap="nowrap"><label for="albumtag"><?php _e("Select album", 'nggallery'); ?></label></td>
+            <td nowrap="nowrap"><label for="albumtag"><?php _e("Album", 'nggallery'); ?></label></td>
             <td><select id="albumtag" name="albumtag" style="width: 200px">
-                <option value="0"><?php _e("No album", 'nggallery'); ?></option>
-				<?php
-					$albumlist = $wpdb->get_results("SELECT * FROM $wpdb->nggalbum ORDER BY id DESC");
-					if(is_array($albumlist)) {
-						foreach($albumlist as $album) {
-							echo '<option value="' . $album->id . '" >' . $album->id . ' - ' . $album->name . '</option>'."\n";
-						}
-					}
-				?>
-            </select></td>
+                    <option value="0" selected="selected"><?php _e("Select or enter album", 'nggallery'); ?></option>
+                </select>
+            </td>
           </tr>
           <tr>
             <td nowrap="nowrap" valign="top"><label for="showtype"><?php _e("Show as", 'nggallery'); ?></label></td>
@@ -94,18 +92,11 @@ global $wpdb, $nggdb;
 		<br />
 		<table border="0" cellpadding="4" cellspacing="0">
          <tr>
-            <td nowrap="nowrap"><label for="singlepictag"><?php _e("Select picture", 'nggallery'); ?></label></td>
+            <td nowrap="nowrap"><label for="singlepictag"><?php _e("Picture", 'nggallery'); ?></label></td>
             <td><select id="singlepictag" name="singlepictag" style="width: 200px">
-                <option value="0"><?php _e("No picture", 'nggallery'); ?></option>
-				<?php
-					$picturelist = $wpdb->get_results("SELECT * FROM $wpdb->nggpictures ORDER BY pid DESC");
-					if(is_array($picturelist)) {
-						foreach($picturelist as $picture) {
-							echo '<option value="' . $picture->pid . '" >'. $picture->pid . ' - ' . $picture->filename.'</option>'."\n";
-						}
-					}
-				?>
-            </select></td>
+                <option value="0" selected="selected"><?php _e("Select or enter picture", 'nggallery'); ?></option>
+                </select>
+            </td>
           </tr>
           <tr>
             <td nowrap="nowrap"><?php _e("Width x Height", 'nggallery'); ?></td>

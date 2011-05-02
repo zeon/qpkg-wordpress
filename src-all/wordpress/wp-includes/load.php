@@ -256,6 +256,8 @@ function timer_stop( $display = 0, $precision = 3 ) { // if called like timer_st
  */
 function wp_debug_mode() {
 	if ( WP_DEBUG ) {
+		// E_DEPRECATED is a core PHP constant in PHP 5.3. Don't define this yourself.
+		// The two statements are equivalent, just one is for 5.3+ and for less than 5.3.
 		if ( defined( 'E_DEPRECATED' ) )
 			error_reporting( E_ALL & ~E_DEPRECATED & ~E_STRICT );
 		else
@@ -305,6 +307,29 @@ function wp_set_lang_dir() {
 			}
 		}
 	}
+}
+
+/**
+ * Load the correct database class file.
+ *
+ * This function is used to load the database class file either at runtime or by
+ * wp-admin/setup-config.php. We must globalize $wpdb to ensure that it is
+ * defined globally by the inline code in wp-db.php.
+ *
+ * @since 2.5.0
+ * @global $wpdb WordPress Database Object
+ */
+function require_wp_db() {
+	global $wpdb;
+
+	require_once( ABSPATH . WPINC . '/wp-db.php' );
+	if ( file_exists( WP_CONTENT_DIR . '/db.php' ) )
+		require_once( WP_CONTENT_DIR . '/db.php' );
+
+	if ( isset( $wpdb ) )
+		return;
+
+	$wpdb = new wpdb( DB_USER, DB_PASSWORD, DB_NAME, DB_HOST );
 }
 
 /**
@@ -378,7 +403,7 @@ function wp_start_object_cache() {
 		wp_cache_init();
 
 	if ( function_exists( 'wp_cache_add_global_groups' ) ) {
-		wp_cache_add_global_groups( array( 'users', 'userlogins', 'usermeta', 'site-transient', 'site-options', 'site-lookup', 'blog-lookup', 'blog-details', 'rss', 'global-posts' ) );
+		wp_cache_add_global_groups( array( 'users', 'userlogins', 'usermeta', 'user_meta', 'site-transient', 'site-options', 'site-lookup', 'blog-lookup', 'blog-details', 'rss', 'global-posts' ) );
 		wp_cache_add_non_persistent_groups( array( 'comment', 'counts', 'plugins' ) );
 	}
 }
@@ -396,12 +421,9 @@ function wp_not_installed() {
 		if ( ! is_blog_installed() && ! defined( 'WP_INSTALLING' ) )
 			wp_die( __( 'The site you have requested is not installed properly. Please contact the system administrator.' ) );
 	} elseif ( ! is_blog_installed() && false === strpos( $_SERVER['PHP_SELF'], 'install.php' ) && !defined( 'WP_INSTALLING' ) ) {
-		if ( defined( 'WP_SITEURL' ) )
-			$link = WP_SITEURL . '/wp-admin/install.php';
-		elseif ( false !== strpos( $_SERVER['PHP_SELF'], 'wp-admin' ) )
-			$link = preg_replace( '|/wp-admin/?.*?$|', '/', $_SERVER['PHP_SELF'] ) . 'wp-admin/install.php';
-		else
-			$link = preg_replace( '|/[^/]+?$|', '/', $_SERVER['PHP_SELF'] ) . 'wp-admin/install.php';
+
+		$link = wp_guess_url() . '/wp-admin/install.php';
+
 		require( ABSPATH . WPINC . '/kses.php' );
 		require( ABSPATH . WPINC . '/pluggable.php' );
 		require( ABSPATH . WPINC . '/formatting.php' );
@@ -452,15 +474,6 @@ function wp_get_active_and_valid_plugins() {
 	$plugins = array();
 	$active_plugins = (array) get_option( 'active_plugins', array() );
 
-	// Get active network plugins
-	if ( is_multisite() ) {
-		$active_sitewide_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
-		if ( !empty($active_sitewide_plugins) ) {
-			$active_plugins = array_merge( $active_plugins, array_keys( $active_sitewide_plugins ) );
-			sort( $active_plugins );
-		}
-	}
-
 	// Check for hacks file if the option is enabled
 	if ( get_option( 'hack_file' ) && file_exists( ABSPATH . 'my-hacks.php' ) ) {
 		_deprecated_file( 'my-hacks.php', '1.5' );
@@ -470,10 +483,14 @@ function wp_get_active_and_valid_plugins() {
 	if ( empty( $active_plugins ) || defined( 'WP_INSTALLING' ) )
 		return $plugins;
 
+	$network_plugins = is_multisite() ? wp_get_active_network_plugins() : false;
+
 	foreach ( $active_plugins as $plugin ) {
 		if ( ! validate_file( $plugin ) // $plugin must validate as file
 			&& '.php' == substr( $plugin, -4 ) // $plugin must end with '.php'
 			&& file_exists( WP_PLUGIN_DIR . '/' . $plugin ) // $plugin must exist
+			// not already included as a network plugin
+			&& ( ! $network_plugins || ! in_array( WP_PLUGIN_DIR . '/' . $plugin, $network_plugins ) )
 			)
 		$plugins[] = WP_PLUGIN_DIR . '/' . $plugin;
 	}
@@ -553,7 +570,7 @@ function wp_clone( $object ) {
 }
 
 /**
- * Whether the current request is in WordPress admin Panel
+ * Whether the current request is for a network or blog admin page
  *
  * Does not inform on whether the user is an admin! Use capability checks to
  * tell if the user should be accessing a section or not.
@@ -569,6 +586,54 @@ function is_admin() {
 }
 
 /**
+ * Whether the current request is for a blog admin screen /wp-admin/
+ *
+ * Does not inform on whether the user is a blog admin! Use capability checks to
+ * tell if the user should be accessing a section or not.
+ *
+ * @since 3.1.0
+ *
+ * @return bool True if inside WordPress network administration pages.
+ */
+function is_blog_admin() {
+	if ( defined( 'WP_BLOG_ADMIN' ) )
+		return WP_BLOG_ADMIN;
+	return false;
+}
+
+/**
+ * Whether the current request is for a network admin screen /wp-admin/network/
+ *
+ * Does not inform on whether the user is a network admin! Use capability checks to
+ * tell if the user should be accessing a section or not.
+ *
+ * @since 3.1.0
+ *
+ * @return bool True if inside WordPress network administration pages.
+ */
+function is_network_admin() {
+	if ( defined( 'WP_NETWORK_ADMIN' ) )
+		return WP_NETWORK_ADMIN;
+	return false;
+}
+
+/**
+ * Whether the current request is for a user admin screen /wp-admin/user/
+ *
+ * Does not inform on whether the user is an admin! Use capability checks to
+ * tell if the user should be accessing a section or not.
+ *
+ * @since 3.1.0
+ *
+ * @return bool True if inside WordPress user administration pages.
+ */
+function is_user_admin() {
+	if ( defined( 'WP_USER_ADMIN' ) )
+		return WP_USER_ADMIN;
+	return false;
+}
+
+/**
  * Whether Multisite support is enabled
  *
  * @since 3.0.0
@@ -579,7 +644,7 @@ function is_multisite() {
 	if ( defined( 'MULTISITE' ) )
 		return MULTISITE;
 
-	if ( defined( 'VHOST' ) || defined( 'SUNRISE' ) )
+	if ( defined( 'SUBDOMAIN_INSTALL' ) || defined( 'VHOST' ) || defined( 'SUNRISE' ) )
 		return true;
 
 	return false;

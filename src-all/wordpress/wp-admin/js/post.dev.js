@@ -36,30 +36,39 @@ tagBox = {
 	},
 
 	quickClicks : function(el) {
-		var thetags = $('.the-tags', el), tagchecklist = $('.tagchecklist', el), current_tags;
+		var thetags = $('.the-tags', el),
+			tagchecklist = $('.tagchecklist', el),
+			id = $(el).attr('id'),
+			current_tags, disabled;
 
 		if ( !thetags.length )
 			return;
 
-		var disabled = thetags.attr('disabled');
+		disabled = thetags.attr('disabled');
 
 		current_tags = thetags.val().split(',');
 		tagchecklist.empty();
 
 		$.each( current_tags, function( key, val ) {
-			var txt, button_id, id = $(el).attr('id');
+			var span, xbutton;
 
-			val = $.trim(val);
-			if ( !val.match(/^\s+$/) && '' != val ) {
-				button_id = id + '-check-num-' + key;
-				if ( disabled )
-		 			txt = '<span>' + val + '</span> ';
-				else
-		 			txt = '<span><a id="' + button_id + '" class="ntdelbutton">X</a>&nbsp;' + val + '</span> ';
-	 			tagchecklist.append(txt);
-				if ( ! disabled )
-		 			$( '#' + button_id ).click( function(){ tagBox.parseTags(this); });
+			val = $.trim( val );
+
+			if ( ! val )
+				return;
+
+			// Create a new span, and ensure the text is properly escaped.
+			span = $('<span />').text( val );
+
+			// If tags editing isn't disabled, create the X button.
+			if ( ! disabled ) {
+				xbutton = $( '<a id="' + id + '-check-num-' + key + '" class="ntdelbutton">X</a>' );
+				xbutton.click( function(){ tagBox.parseTags(this); });
+				span.prepend('&nbsp;').prepend( xbutton );
 			}
+
+			// Append the span to the tag list.
+			tagchecklist.append( span );
 		});
 	},
 
@@ -171,9 +180,9 @@ commentsBox = {
 			'action' : 'get-comments',
 			'mode' : 'single',
 			'_ajax_nonce' : $('#add_comment_nonce').val(),
-			'post_ID' : $('#post_ID').val(),
+			'p' : $('#post_ID').val(),
 			'start' : st,
-			'num' : num
+			'number' : num
 		};
 
 		$.post(ajaxurl, data,
@@ -187,7 +196,6 @@ commentsBox = {
 
 					theList = theExtraList = null;
 					$("a[className*=':']").unbind();
-					setCommentsList();
 
 					if ( commentsBox.st > commentsBox.total )
 						$('#show-comments').hide();
@@ -360,8 +368,8 @@ jQuery(document).ready( function($) {
 		}
 
 		function updateText() {
-			var attemptedDate, originalDate, currentDate, publishOn, page = 'page' == pagenow || 'page-new' == pagenow,
-				postStatus = $('#post_status'),	optPublish = $('option[value=publish]', postStatus), aa = $('#aa').val(),
+			var attemptedDate, originalDate, currentDate, publishOn, postStatus = $('#post_status'),
+				optPublish = $('option[value=publish]', postStatus), aa = $('#aa').val(),
 				mm = $('#mm').val(), jj = $('#jj').val(), hh = $('#hh').val(), mn = $('#mn').val();
 
 			attemptedDate = new Date( aa, mm - 1, jj, hh, mn );
@@ -383,10 +391,7 @@ jQuery(document).ready( function($) {
 				$('#publish').val( postL10n.publish );
 			} else {
 				publishOn = postL10n.publishOnPast;
-				if ( page )
-					$('#publish').val( postL10n.updatePage );
-				else
-					$('#publish').val( postL10n.updatePost );
+				$('#publish').val( postL10n.update );
 			}
 			if ( originalDate.toUTCString() == attemptedDate.toUTCString() ) { //hack
 				$('#timestamp').html(stamp);
@@ -402,10 +407,7 @@ jQuery(document).ready( function($) {
 			}
 
 			if ( $('input:radio:checked', '#post-visibility-select').val() == 'private' ) {
-				if ( page )
-					$('#publish').val( postL10n.updatePage );
-				else
-					$('#publish').val( postL10n.updatePost );
+				$('#publish').val( postL10n.update );
 				if ( optPublish.length == 0 ) {
 					postStatus.append('<option value="publish">' + postL10n.privatelyPublished + '</option>');
 				} else {

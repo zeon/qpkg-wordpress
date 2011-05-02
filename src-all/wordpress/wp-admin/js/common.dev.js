@@ -46,18 +46,17 @@ adminMenu = {
 	},
 
 	toggle : function(el) {
-		var id = el.slideToggle(150, function() {
-			el.css('display','');
-		}).parent().toggleClass( 'wp-menu-open' ).attr('id');
-
-		if ( id ) {
-			$('li.wp-has-submenu', '#adminmenu').each(function(i, e) {
-				if ( id == e.id ) {
-				    var v = $(e).hasClass('wp-menu-open') ? 'o' : 'c';
-				    setUserSetting( 'm'+i, v );
-				}
-			});
-		}
+		el.slideToggle(150, function() {
+			var id = el.parent().toggleClass( 'wp-menu-open' ).attr('id');
+			if ( id ) {
+				$('li.wp-has-submenu', '#adminmenu').each(function(i, e) {
+					if ( id == e.id ) {
+						var v = $(e).hasClass('wp-menu-open') ? 'o' : 'c';
+						setUserSetting( 'm'+i, v );
+					}
+				});
+			}
+		});
 
 		return false;
 	},
@@ -147,10 +146,12 @@ columns = {
 
 	checked : function(column) {
 		$('.column-' + column).show();
+		this.colSpanChange(+1);
 	},
 
 	unchecked : function(column) {
 		$('.column-' + column).hide();
+		this.colSpanChange(-1);
 	},
 
 	hidden : function() {
@@ -164,6 +165,14 @@ columns = {
 				return id.substring( id, id.length - 5 );
 			}).get().join(',');
 		};
+	},
+
+	colSpanChange : function(diff) {
+		var $t = $('table').find('.colspanchange'), n;
+		if ( !$t.length )
+			return;
+		n = parseInt( $t.attr('colspan'), 10 ) + diff;
+		$t.attr('colspan', n.toString());
 	}
 }
 
@@ -192,7 +201,7 @@ showNotice = {
 };
 
 jQuery(document).ready( function($) {
-	var lastClicked = false, checks, first, last, checked;
+	var lastClicked = false, checks, first, last, checked, bgx = ( isRtl ? 'left' : 'right' );
 
 	// Move .updated and .error alert boxes. Don't move boxes designed to be inline.
 	$('div.wrap h2:first').nextAll('div.updated, div.error').addClass('below-h2');
@@ -205,11 +214,11 @@ jQuery(document).ready( function($) {
 
 		$('#screen-options-wrap').slideToggle('fast', function(){
 			if ( $(this).hasClass('screen-options-open') ) {
-				$('#show-settings-link').css({'backgroundImage':'url("images/screen-options-right.gif?ver=20100531")'});
+				$('#show-settings-link').css({'backgroundPosition':'top '+bgx});
 				$('#contextual-help-link-wrap').css('visibility', '');
 				$(this).removeClass('screen-options-open');
 			} else {
-				$('#show-settings-link').css({'backgroundImage':'url("images/screen-options-right-up.gif?ver=20100531")'});
+				$('#show-settings-link').css({'backgroundPosition':'bottom '+bgx});
 				$(this).addClass('screen-options-open');
 			}
 		});
@@ -223,11 +232,11 @@ jQuery(document).ready( function($) {
 
 		$('#contextual-help-wrap').slideToggle('fast', function() {
 			if ( $(this).hasClass('contextual-help-open') ) {
-				$('#contextual-help-link').css({'backgroundImage':'url("images/screen-options-right.gif?ver=20100531")'});
+				$('#contextual-help-link').css({'backgroundPosition':'top '+bgx});
 				$('#screen-options-link-wrap').css('visibility', '');
 				$(this).removeClass('contextual-help-open');
 			} else {
-				$('#contextual-help-link').css({'backgroundImage':'url("images/screen-options-right-up.gif?ver=20100531")'});
+				$('#contextual-help-link').css({'backgroundPosition':'bottom '+bgx});
 				$(this).addClass('contextual-help-open');
 			}
 		});
@@ -256,7 +265,7 @@ jQuery(document).ready( function($) {
 		return true;
 	});
 
-	$('thead, tfoot').find(':checkbox').click( function(e) {
+	$('thead, tfoot').find('.check-column :checkbox').click( function(e) {
 		var c = $(this).attr('checked'),
 			kbtoggle = 'undefined' == typeof toggleWithKeyboard ? false : toggleWithKeyboard,
 			toggle = e.shiftKey || kbtoggle;

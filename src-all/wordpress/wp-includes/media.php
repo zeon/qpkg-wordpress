@@ -137,6 +137,7 @@ function image_downsize($id, $size = 'medium') {
 	$meta = wp_get_attachment_metadata($id);
 	$width = $height = 0;
 	$is_intermediate = false;
+	$img_url_basename = wp_basename($img_url);
 
 	// plugins can use this to provide resize services
 	if ( $out = apply_filters('image_downsize', false, $id, $size) )
@@ -144,7 +145,7 @@ function image_downsize($id, $size = 'medium') {
 
 	// try for a new style intermediate size
 	if ( $intermediate = image_get_intermediate_size($id, $size) ) {
-		$img_url = str_replace(basename($img_url), $intermediate['file'], $img_url);
+		$img_url = str_replace($img_url_basename, $intermediate['file'], $img_url);
 		$width = $intermediate['width'];
 		$height = $intermediate['height'];
 		$is_intermediate = true;
@@ -152,7 +153,7 @@ function image_downsize($id, $size = 'medium') {
 	elseif ( $size == 'thumbnail' ) {
 		// fall back to the old thumbnail
 		if ( ($thumb_file = wp_get_attachment_thumb_file($id)) && $info = getimagesize($thumb_file) ) {
-			$img_url = str_replace(basename($img_url), basename($thumb_file), $img_url);
+			$img_url = str_replace($img_url_basename, wp_basename($thumb_file), $img_url);
 			$width = $info[0];
 			$height = $info[1];
 			$is_intermediate = true;
@@ -177,15 +178,15 @@ function image_downsize($id, $size = 'medium') {
 /**
  * Registers a new image size
  */
-function add_image_size( $name, $width = 0, $height = 0, $crop = FALSE ) {
+function add_image_size( $name, $width = 0, $height = 0, $crop = false ) {
 	global $_wp_additional_image_sizes;
-	$_wp_additional_image_sizes[$name] = array( 'width' => absint( $width ), 'height' => absint( $height ), 'crop' => !!$crop );
+	$_wp_additional_image_sizes[$name] = array( 'width' => absint( $width ), 'height' => absint( $height ), 'crop' => (bool) $crop );
 }
 
 /**
  * Registers an image size for the post thumbnail
  */
-function set_post_thumbnail_size( $width = 0, $height = 0, $crop = FALSE ) {
+function set_post_thumbnail_size( $width = 0, $height = 0, $crop = false ) {
 	add_image_size( 'post-thumbnail', $width, $height, $crop );
 }
 
@@ -436,7 +437,8 @@ function image_resize( $file, $max_w, $max_h, $crop = false, $suffix = null, $de
 	$info = pathinfo($file);
 	$dir = $info['dirname'];
 	$ext = $info['extension'];
-	$name = basename($file, ".{$ext}");
+	$name = wp_basename($file, ".$ext");
+
 	if ( !is_null($dest_path) and $_dest_path = realpath($dest_path) )
 		$dir = $_dest_path;
 	$destfilename = "{$dir}/{$name}-{$suffix}.{$ext}";
@@ -485,7 +487,7 @@ function image_make_intermediate_size($file, $width, $height, $crop=false) {
 		if ( !is_wp_error($resized_file) && $resized_file && $info = getimagesize($resized_file) ) {
 			$resized_file = apply_filters('image_make_intermediate_size', $resized_file);
 			return array(
-				'file' => basename( $resized_file ),
+				'file' => wp_basename( $resized_file ),
 				'width' => $info[0],
 				'height' => $info[1],
 			);
@@ -606,7 +608,7 @@ function wp_get_attachment_image_src($attachment_id, $size='thumbnail', $icon = 
 
 	if ( $icon && $src = wp_mime_type_icon($attachment_id) ) {
 		$icon_dir = apply_filters( 'icon_dir', ABSPATH . WPINC . '/images/crystal' );
-		$src_file = $icon_dir . '/' . basename($src);
+		$src_file = $icon_dir . '/' . wp_basename($src);
 		@list($width, $height) = getimagesize($src_file);
 	}
 	if ( $src && $width && $height )
@@ -821,7 +823,9 @@ function gallery_shortcode($attr) {
 
 	$selector = "gallery-{$instance}";
 
-	$output = apply_filters('gallery_style', "
+	$gallery_style = $gallery_div = '';
+	if ( apply_filters( 'use_default_gallery_style', true ) )
+		$gallery_style = "
 		<style type='text/css'>
 			#{$selector} {
 				margin: auto;
@@ -830,7 +834,8 @@ function gallery_shortcode($attr) {
 				float: {$float};
 				margin-top: 10px;
 				text-align: center;
-				width: {$itemwidth}%;			}
+				width: {$itemwidth}%;
+			}
 			#{$selector} img {
 				border: 2px solid #cfcfcf;
 			}
@@ -838,8 +843,10 @@ function gallery_shortcode($attr) {
 				margin-left: 0;
 			}
 		</style>
-		<!-- see gallery_shortcode() in wp-includes/media.php -->
-		<div id='$selector' class='gallery galleryid-{$id}'>");
+		<!-- see gallery_shortcode() in wp-includes/media.php -->";
+	$size_class = sanitize_html_class( $size );
+	$gallery_div = "<div id='$selector' class='gallery galleryid-{$id} gallery-columns-{$columns} gallery-size-{$size_class}'>";
+	$output = apply_filters( 'gallery_style', $gallery_style . "\n\t\t" . $gallery_div );
 
 	$i = 0;
 	foreach ( $attachments as $id => $attachment ) {
@@ -852,7 +859,7 @@ function gallery_shortcode($attr) {
 			</{$icontag}>";
 		if ( $captiontag && trim($attachment->post_excerpt) ) {
 			$output .= "
-				<{$captiontag} class='gallery-caption'>
+				<{$captiontag} class='wp-caption-text gallery-caption'>
 				" . wptexturize($attachment->post_excerpt) . "
 				</{$captiontag}>";
 		}
@@ -960,7 +967,7 @@ function get_attachment_taxonomies($attachment) {
  *
  * @since 2.9.0
  *
- * @param $mime_type string
+ * @param string $mime_type
  * @return bool
  */
 function gd_edit_image_support($mime_type) {
@@ -991,8 +998,8 @@ function gd_edit_image_support($mime_type) {
  *
  * @since 2.9.0
  *
- * @param $width
- * @param $height
+ * @param int $width Image width
+ * @param int $height Image height
  * @return image resource
  */
 function wp_imagecreatetruecolor($width, $height) {
@@ -1063,7 +1070,7 @@ class WP_Embed {
 	function run_shortcode( $content ) {
 		global $shortcode_tags;
 
-		// Backup current registered shortcodes and clear them all out
+		// Back up current registered shortcodes and clear them all out
 		$orig_shortcode_tags = $shortcode_tags;
 		remove_all_shortcodes();
 
@@ -1156,6 +1163,10 @@ class WP_Embed {
 		$rawattr = $attr;
 		$attr = wp_parse_args( $attr, wp_embed_defaults() );
 
+		// kses converts & into &amp; and we need to undo this
+		// See http://core.trac.wordpress.org/ticket/11311
+		$url = str_replace( '&amp;', '&', $url );
+
 		// Look for known internal handlers
 		ksort( $this->handlers );
 		foreach ( $this->handlers as $priority => $handlers ) {
@@ -1184,7 +1195,7 @@ class WP_Embed {
 					return $this->maybe_make_link( $url );
 
 				if ( !empty($cache) )
-					return apply_filters( 'embed_oembed_html', $cache, $url, $attr );
+					return apply_filters( 'embed_oembed_html', $cache, $url, $attr, $post_ID );
 			}
 
 			// Use oEmbed to get the HTML
@@ -1197,7 +1208,7 @@ class WP_Embed {
 
 			// If there was a result, return it
 			if ( $html )
-				return apply_filters( 'embed_oembed_html', $html, $url, $attr );
+				return apply_filters( 'embed_oembed_html', $html, $url, $attr, $post_ID );
 		}
 
 		// Still unknown

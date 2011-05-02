@@ -11,10 +11,11 @@
  * An RFC 1939 compliant wrapper class for the POP3 protocol.
  *
  * Licensed under the GNU GPL. For full terms see the file COPYING.
+ * @license http://opensource.org/licenses/gpl-license.php GNU General Public License
  *
  * pop3 class
  *
- * $Id: class-pop3.php 9503 2008-11-03 23:25:11Z ryan $
+ * $Id: class-pop3.php 17436 2011-02-09 17:36:23Z ryan $
  */
 
 class POP3 {
@@ -367,7 +368,7 @@ class POP3 {
         $line = fgets($fp,$buffer);
         while ( !ereg("^\.\r\n",$line))
         {
-            if ( $line{0} == '.' ) { $line = substr($line,1); }
+            if ( $line[0] == '.' ) { $line = substr($line,1); }
             $MsgArray[$count] = $line;
             $count++;
             $line = fgets($fp,$buffer);

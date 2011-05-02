@@ -119,9 +119,9 @@ class nggMediaRss {
 	function get_mrss_root_node($title, $description, $link, $prev_link, $next_link, $images) {	
 		
 		if ($prev_link != '' || $next_link != '')
-			$out = "<rss version='2.0' xmlns:media='http://search.yahoo.com/mrss' xmlns:atom='http://www.w3.org/2005/Atom'>\n" ;
+			$out = "<rss version='2.0' xmlns:media='http://search.yahoo.com/mrss/' xmlns:atom='http://www.w3.org/2005/Atom'>\n" ;
 		else
-			$out = "<rss version='2.0' xmlns:media='http://search.yahoo.com/mrss'>\n";
+			$out = "<rss version='2.0' xmlns:media='http://search.yahoo.com/mrss/'>\n";
 		
 		$out .= "\t<channel>\n";
 		
@@ -129,7 +129,9 @@ class nggMediaRss {
 		$out .= nggMediaRss::get_title_mrss_node($title);
 		$out .= nggMediaRss::get_description_mrss_node($description);
 		$out .= nggMediaRss::get_link_mrss_node($link);
-				
+		
+        if ($prev_link != '' || $next_link != '')
+        	$out .= nggMediaRss::get_self_node(nggMediaRss::get_mrss_url());	
 		if ($prev_link!='') {
 			$out .= nggMediaRss::get_previous_link_mrss_node($prev_link);
 		}
@@ -151,7 +153,7 @@ class nggMediaRss {
 	 * Get the XML <generator> node
 	 */
 	function get_generator_mrss_node($indent = "\t\t") {	
-		return $indent . "<generator><![CDATA[NextGEN Gallery [http://alexrabe.boelinger.com]]]></generator>\n";
+		return $indent . "<generator><![CDATA[NextGEN Gallery [http://nextgen-gallery.com]]]></generator>\n";
 	}	
 	
 	/**
@@ -174,6 +176,13 @@ class nggMediaRss {
 	function get_link_mrss_node($link, $indent = "\t\t") {	
 		return $indent . "<link><![CDATA[" . htmlspecialchars($link) . "]]></link>\n";
 	}	
+
+	/**
+	 * Get the XML <atom:link self> node
+	 */
+	function get_self_node($link, $indent = "\t\t") {
+		return $indent . "<atom:link rel='self' href='" . htmlspecialchars($link) . "' type='application/rss+xml' />\n";
+	}
 	
 	/**
 	 * Get the XML <atom:link previous> node
@@ -212,7 +221,8 @@ class nggMediaRss {
 		$out  = $indent . "<item>\n";
 		$out .= $indent . "\t<title><![CDATA[" . nggGallery::i18n($title) . "]]></title>\n";
 		$out .= $indent . "\t<description><![CDATA[" . nggGallery::i18n($desc) . "]]></description>\n";
-		$out .= $indent . "\t<link><![CDATA[" . $image->get_permalink() . "]]></link>\n";		
+		$out .= $indent . "\t<link><![CDATA[" . $image->get_permalink() . "]]></link>\n";
+        $out .= $indent . "\t<guid>image-id:" . $image->pid . "</guid>\n";
 		$out .= $indent . "\t<media:content url='" . esc_url($image->imageURL) . "' medium='image' />\n";
 		$out .= $indent . "\t<media:title><![CDATA[" . nggGallery::i18n($title) . "]]></media:title>\n";
 		$out .= $indent . "\t<media:description><![CDATA[" . nggGallery::i18n($desc) . "]]></media:description>\n";

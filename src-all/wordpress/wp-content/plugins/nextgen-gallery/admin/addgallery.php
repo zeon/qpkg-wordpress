@@ -130,9 +130,6 @@ class nggAddGallery {
     	
         // link for the flash file
     	$swf_upload_link = NGGALLERY_URLPATH . 'admin/upload.php';
-    	$swf_upload_link = wp_nonce_url($swf_upload_link, 'ngg_swfupload');
-    	//flash doesn't seem to like encoded ampersands, so convert them back here
-    	$swf_upload_link = str_replace('&#038;', '&', $swf_upload_link);
 
         // get list of tabs
         $tabs = $this->tabs_order();
@@ -146,7 +143,7 @@ class nggAddGallery {
 		window.onload = function () {
 			ngg_swf_upload = new SWFUpload({
 				// Backend settings
-				upload_url : "<?php echo $swf_upload_link; ?>",
+				upload_url : "<?php echo esc_attr( $swf_upload_link ); ?>",
 				flash_url : "<?php echo NGGALLERY_URLPATH; ?>admin/js/swfupload.swf",
 				
 				// Button Settings
@@ -172,7 +169,9 @@ class nggAddGallery {
 				upload_complete_handler : uploadComplete,
 				
 				post_params : {
-					"auth_cookie" : "<?php echo $_COOKIE[AUTH_COOKIE]; ?>",
+					"auth_cookie" : "<?php echo (is_ssl() ? $_COOKIE[SECURE_AUTH_COOKIE] : $_COOKIE[AUTH_COOKIE]); ?>",
+                    "logged_in_cookie": "<?php echo $_COOKIE[LOGGED_IN_COOKIE]; ?>",
+                    "_wpnonce" : "<?php echo wp_create_nonce('ngg_swfupload'); ?>",                    
 					"galleryselect" : "0"
 				},
 				
@@ -190,17 +189,14 @@ class nggAddGallery {
 			
 			// on load change the upload to swfupload
 			initSWFUpload();
+
+			nggAjaxOptions = {
+			  	header: "<?php _e('Upload images', 'nggallery') ;?>",
+			  	maxStep: 100
+			};
 			
 		};
 	</script>
-	
-	<div class="wrap" id="progressbar-wrap">
-		<div class="progressborder">
-			<div class="progressbar" id="progressbar">
-				<span>0%</span>
-			</div>
-		</div>
-	</div>
 	
 	<?php } else { ?>
 	<!-- MultiFile script -->
@@ -220,6 +216,7 @@ class nggAddGallery {
 	<script type="text/javascript">
 	/* <![CDATA[ */
 		jQuery(document).ready(function(){
+            jQuery('html,body').scrollTop(0);
 			jQuery('#slider').tabs({ fxFade: true, fxSpeed: 'fast' });	
 		});
 		
@@ -279,7 +276,7 @@ class nggAddGallery {
         if ( wpmu_enable_function('wpmuZipUpload') && nggGallery::current_user_can( 'NextGEN Upload a zip' ) ) 
             $tabs['zipupload'] = __('Upload a Zip-File', 'nggallery');
     	
-        if (!is_multisite() && nggGallery::current_user_can( 'NextGEN Import image folder' ) ) 
+        if ( wpmu_enable_function('wpmuImportFolder') && nggGallery::current_user_can( 'NextGEN Import image folder' ) ) 
             $tabs['importfolder'] = __('Import image folder', 'nggallery');
             
     	$tabs = apply_filters('ngg_addgallery_tabs', $tabs);

@@ -5,7 +5,7 @@
  * Built on top of the swfupload library
  *   http://swfupload.org version 2.2.0
  *
- *  version 1.0.2
+ *  version 1.0.3
  */
 
 // on load change the upload to swfupload
@@ -20,7 +20,6 @@ function initSWFUpload() {
 			.after("<input type='text' id='txtFileName' readonly='readonly' />")				
 			.remove();
 		jQuery("#imagefiles").click( function() { fileBrowse(); } );
-		jQuery("#progressbar-wrap").hide();
 	});
 }
  
@@ -45,7 +44,7 @@ function fileQueued(fileObj) {
 function submitFiles() {
 	// check if a gallery is selected
 	if (jQuery('#galleryselect').val() > "0") {
-		jQuery("#progressbar-wrap").show();
+        nggProgressBar.init(nggAjaxOptions);
 		// get old post_params
 		post_params = ngg_swf_upload.getSetting("post_params");
 		// update the selected gallery in the post_params 
@@ -67,14 +66,14 @@ function removeFile(fileID) {
 
 // called before the uploads start
 function uploadStart(fileObj) {
-	jQuery("#progressbar span").text("0% - " + fileObj.name);	
+    nggProgressBar.init(nggAjaxOptions);
 	return true;
 }
 
 // called during the upload progress
 function uploadProgress(fileObj, bytesLoaded) {
 	var percent = Math.ceil((bytesLoaded / fileObj.size) * 100);
-	jQuery("#progressbar").css("width", percent + "%");
+    nggProgressBar.increase( percent );
 	jQuery("#progressbar span").text(percent + "% - " + fileObj.name);
 }
 
@@ -83,7 +82,7 @@ function uploadComplete(fileObj) {
 	jQuery("#" + fileObj.id).hide("slow");
 	jQuery("#" + fileObj.id).remove();
 	if ( ngg_swf_upload.getStats().files_queued == 0) {
-		jQuery("#progressbar-wrap").hide()
+	    nggProgressBar.finished();   
 		jQuery("#uploadimage_form").submit();
 	}
 }
@@ -92,7 +91,7 @@ function uploadComplete(fileObj) {
 function uploadSuccess(fileObj, server_data) {
 	// Show any error message
 	if (server_data != 0){
-		jQuery("#progressbar-wrap").append("<div><strong>ERROR</strong>: " + fileObj.name + " : " + server_data + "</div>");
+		nggProgressBar.addNote("<strong>ERROR</strong>: " + fileObj.name + " : " + server_data);
 	}
 	// Upload the next file until queue is empty
 	if ( ngg_swf_upload.getStats().files_queued > 0) {
@@ -142,13 +141,12 @@ function uploadError(fileObj, error_code, message) {
 			error_name = "UNKNOWN";
 		break;
 	}
-	jQuery("#progressbar-wrap").append("<div><strong>ERROR " + error_name + " </strong>: " + fileObj.name + " : " + message + "</div>");
+	nggProgressBar.addNote("<strong>ERROR " + error_name + " </strong>: " + fileObj.name + " : " + message);
 	jQuery("#" + fileObj.id).hide("slow");
 	jQuery("#" + fileObj.id).remove();
 	if ( ngg_swf_upload.getStats().files_queued > 0) {
 		ngg_swf_upload.startUpload();
 	} else {
-		jQuery("#progressbar-wrap").hide()
 		jQuery('#uploadimage_form').prepend("<input type=\"hidden\" name=\"swf_callback\" value=\"" + error_name + "\">");
 		jQuery("#uploadimage_form").submit();
 	}

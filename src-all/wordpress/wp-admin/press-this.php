@@ -6,8 +6,11 @@
  * @subpackage Press_This
  */
 
+define('IFRAME_REQUEST' , true);
+
 /** WordPress Administration Bootstrap */
 require_once('./admin.php');
+
 header('Content-Type: ' . get_option('html_type') . '; charset=' . get_option('blog_charset'));
 
 if ( ! current_user_can('edit_posts') )
@@ -24,6 +27,7 @@ if ( ! current_user_can('edit_posts') )
  */
 function press_it() {
 	// define some basic variables
+	$quick = array();
 	$quick['post_status'] = 'draft'; // set as draft first
 	$quick['post_category'] = isset($_POST['post_category']) ? $_POST['post_category'] : null;
 	$quick['tax_input'] = isset($_POST['tax_input']) ? $_POST['tax_input'] : null;
@@ -52,13 +56,30 @@ function press_it() {
 		}
 	}
 	// set the post_content and status
-	$quick['post_status'] = isset($_POST['publish']) ? 'publish' : 'draft';
+	if ( isset( $_POST['publish'] ) && current_user_can( 'publish_posts' ) )
+		$quick['post_status'] = 'publish';
+	elseif ( isset( $_POST['review'] ) )
+		$quick['post_status'] = 'pending';
+	else
+		$quick['post_status'] = 'draft';
 	$quick['post_content'] = $content;
 	// error handling for media_sideload
 	if ( is_wp_error($upload) ) {
 		wp_delete_post($post_ID);
 		wp_die($upload);
 	} else {
+		// Post formats
+		if ( current_theme_supports( 'post-formats' ) && isset( $_POST['post_format'] ) ) {
+			$post_formats = get_theme_support( 'post-formats' );
+			if ( is_array( $post_formats ) ) {
+				$post_formats = $post_formats[0];
+				if ( in_array( $_POST['post_format'], $post_formats ) )
+					set_post_format( $post_ID, $_POST['post_format'] );
+				elseif ( '0' == $_POST['post_format'] )
+					set_post_format( $post_ID, false );
+			}
+		}
+
 		$quick['ID'] = $post_ID;
 		wp_update_post($quick);
 	}
@@ -110,7 +131,7 @@ if ( !empty($_REQUEST['ajax']) ) {
 			<div class="postbox">
 				<h2><label for="embed-code"><?php _e('Embed Code') ?></label></h2>
 				<div class="inside">
-					<textarea name="embed-code" id="embed-code" rows="8" cols="40"><?php echo wp_htmledit_pre( $selection ); ?></textarea>
+					<textarea name="embed-code" id="embed-code" rows="8" cols="40"><?php echo esc_textarea( $selection ); ?></textarea>
 					<p id="options"><a href="#" class="select button"><?php _e('Insert Video'); ?></a> <a href="#" class="close button"><?php _e('Cancel'); ?></a></p>
 				</div>
 			</div>
@@ -317,7 +338,7 @@ die;
 //<![CDATA[
 addLoadEvent = function(func){if(typeof jQuery!="undefined")jQuery(document).ready(func);else if(typeof wpOnload!='function'){wpOnload=func;}else{var oldonload=wpOnload;wpOnload=function(){oldonload();func();}}};
 var userSettings = {'url':'<?php echo SITECOOKIEPATH; ?>','uid':'<?php if ( ! isset($current_user) ) $current_user = wp_get_current_user(); echo $current_user->ID; ?>','time':'<?php echo time() ?>'};
-var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>', pagenow = 'press-this';
+var ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>', pagenow = 'press-this', isRtl = <?php echo (int) is_rtl(); ?>;
 var photostorage = false;
 //]]>
 </script>
@@ -327,8 +348,10 @@ var photostorage = false;
 	do_action('admin_print_scripts');
 	do_action('admin_head');
 
-	if ( user_can_richedit() )
+	if ( user_can_richedit() ) {
 		wp_tiny_mce( true, array( 'height' => '370' ) );
+		add_action( 'admin_print_footer_scripts', 'wp_tiny_mce_preload_dialogs', 30 );
+	}
 ?>
 	<script type="text/javascript">
 	function insert_plain_editor(text) {
@@ -463,20 +486,33 @@ var photostorage = false;
 			<div class="photolist"></div>
 
 			<div id="submitdiv" class="stuffbox">
-				<div class="handlediv" title="<?php _e( 'Click to toggle' ); ?>">
-					<br/>
-				</div>
-				<h3><?php _e('Publish') ?></h3>
 				<div class="inside">
 					<p>
-						<input class="button" type="submit" name="draft" value="<?php esc_attr_e('Save Draft') ?>" id="save" />
-						<?php if ( current_user_can('publish_posts') ) { ?>
-							<input class="button-primary" type="submit" name="publish" value="<?php esc_attr_e('Publish') ?>" id="publish" />
-						<?php } else { ?>
-							<br /><br /><input class="button-primary" type="submit" name="review" value="<?php esc_attr_e('Submit for Review') ?>" id="review" />
-						<?php } ?>
+					<?php
+						submit_button( __( 'Save Draft' ), 'button', 'draft', false, array( 'id' => 'save' ) );
+						if ( current_user_can('publish_posts') ) {
+							submit_button( __( 'Publish' ), 'primary', 'publish', false );
+						} else {
+							echo '<br /><br />';
+							submit_button( __( 'Submit for Review' ), 'primary', 'review', false );
+						} ?>
 						<img src="<?php echo esc_url( admin_url( 'images/wpspin_light.gif' ) ); ?>" alt="" id="saving" style="display:none;" />
 					</p>
+					<?php if ( current_theme_supports( 'post-formats' ) && post_type_supports( 'post', 'post-formats' ) ) :
+							$post_formats = get_theme_support( 'post-formats' );
+							if ( is_array( $post_formats[0] ) ) :
+								$default_format = get_option( 'default_post_format', '0' );
+						?>
+					<p>
+						<label for="post_format"><?php _e( 'Post Format:' ); ?>
+						<select name="post_format" id="post_format">
+							<option value="0"><?php _e( 'Standard' ); ?></option>
+						<?php foreach ( $post_formats[0] as $format ): ?>
+							<option<?php selected( $default_format, $format ); ?> value="<?php echo esc_attr( $format ); ?>"> <?php echo esc_html( get_post_format_string( $format ) ); ?></option>
+						<?php endforeach; ?>
+						</select></label>
+					</p>
+					<?php endif; endif; ?>
 				</div>
 			</div>
 

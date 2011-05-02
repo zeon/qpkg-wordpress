@@ -7,12 +7,12 @@
  */
 
 /**
- * Retrieve Bookmark data based on ID
+ * Retrieve Bookmark data
  *
  * @since 2.1.0
  * @uses $wpdb Database Object
  *
- * @param int $bookmark_id
+ * @param mixed $bookmark
  * @param string $output Optional. Either OBJECT, ARRAY_N, or ARRAY_A constant
  * @param string $filter Optional, default is 'raw'.
  * @return array|object Type returned depends on $output value.
@@ -334,11 +334,10 @@ function sanitize_bookmark_field($field, $value, $bookmark_id, $context) {
 		return $value;
 
 	if ( 'edit' == $context ) {
-		$format_to_edit = array('link_notes');
 		$value = apply_filters("edit_$field", $value, $bookmark_id);
 
-		if ( in_array($field, $format_to_edit) ) {
-			$value = format_to_edit($value);
+		if ( 'link_notes' == $field ) {
+			$value = esc_html( $value ); // textarea_escaped
 		} else {
 			$value = esc_attr($value);
 		}

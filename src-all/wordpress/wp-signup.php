@@ -6,7 +6,6 @@ require( dirname(__FILE__) . '/wp-load.php' );
 add_action( 'wp_head', 'signuppageheaders' ) ;
 
 require( './wp-blog-header.php' );
-require_once( ABSPATH . WPINC . '/registration.php' );
 
 if ( is_array( get_site_option( 'illegal_names' )) && isset( $_GET[ 'new' ] ) && in_array( $_GET[ 'new' ], get_site_option( 'illegal_names' ) ) == true ) {
 	wp_redirect( network_home_url() );
@@ -23,7 +22,7 @@ function signuppageheaders() {
 }
 
 if ( !is_multisite() ) {
-	wp_redirect( get_option( 'siteurl' ) . "/wp-login.php?action=register" );
+	wp_redirect( site_url('wp-login.php?action=register') );
 	die();
 }
 
@@ -81,12 +80,11 @@ function show_blog_form($blogname = '', $blog_title = '', $errors = '') {
 		echo '<input name="blogname" type="text" id="blogname" value="'.esc_attr($blogname).'" maxlength="60" /><span class="suffix_address">.' . ( $site_domain = preg_replace( '|^www\.|', '', $current_site->domain ) ) . '</span><br />';
 
 	if ( !is_user_logged_in() ) {
-		print '(<strong>' . __( 'Your address will be ' );
 		if ( !is_subdomain_install() )
-			print $current_site->domain . $current_site->path . __( 'sitename' );
+			$site = $current_site->domain . $current_site->path . __( 'sitename' );
 		else
-			print __( 'domain.' ) . $site_domain . $current_site->path;
-		echo '.</strong>) ' . __( 'Must be at least 4 characters, letters and numbers only. It cannot be changed, so choose carefully!' ) . '</p>';
+			$site = __( 'domain' ) . '.' . $site_domain . $current_site->path;
+		echo '<p>(<strong>' . sprintf( __('Your address will be %s.'), $site ) . '</strong>) ' . __( 'Must be at least 4 characters, letters and numbers only. It cannot be changed, so choose carefully!' ) . '</p>';
 	}
 
 	// Blog Title
@@ -393,7 +391,7 @@ $i18n_signup['blog'] = _x('blog', 'Multisite active signup type');
 $i18n_signup['user'] = _x('user', 'Multisite active signup type');
 
 if ( is_super_admin() )
-	echo '<div class="mu_alert">' . sprintf( __( 'Greetings Site Administrator! You are currently allowing &#8220;%s&#8221; registrations. To change or disable registration go to your <a href="%s">Options page</a>.' ), $i18n_signup[$active_signup], esc_url( network_admin_url( 'ms-options.php' ) ) ) . '</div>';
+	echo '<div class="mu_alert">' . sprintf( __( 'Greetings Site Administrator! You are currently allowing &#8220;%s&#8221; registrations. To change or disable registration go to your <a href="%s">Options page</a>.' ), $i18n_signup[$active_signup], esc_url( network_admin_url( 'settings.php' ) ) ) . '</div>';
 
 $newblogname = isset($_GET['new']) ? strtolower(preg_replace('/^-|-$|[^-a-zA-Z0-9]/', '', $_GET['new'])) : null;
 

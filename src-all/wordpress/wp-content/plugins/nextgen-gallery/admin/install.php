@@ -50,11 +50,13 @@ function nggallery_install () {
    	$nggpictures					= $wpdb->prefix . 'ngg_pictures';
 	$nggallery						= $wpdb->prefix . 'ngg_gallery';
 	$nggalbum						= $wpdb->prefix . 'ngg_album';
-   
-	if($wpdb->get_var("show tables like '$nggpictures'") != $nggpictures) {
+
+    // could be case senstive : http://dev.mysql.com/doc/refman/5.1/en/identifier-case-sensitivity.html
+	if( !$wpdb->get_var( "SHOW TABLES LIKE '$nggpictures'" ) ) {
       
 		$sql = "CREATE TABLE " . $nggpictures . " (
 		pid BIGINT(20) NOT NULL AUTO_INCREMENT ,
+        image_slug VARCHAR(255) NOT NULL ,
 		post_id BIGINT(20) DEFAULT '0' NOT NULL ,
 		galleryid BIGINT(20) DEFAULT '0' NOT NULL ,
 		filename VARCHAR(255) NOT NULL ,
@@ -71,11 +73,12 @@ function nggallery_install () {
       dbDelta($sql);
     }
 
-	if($wpdb->get_var("show tables like '$nggallery'") != $nggallery) {
+	if( !$wpdb->get_var( "SHOW TABLES LIKE '$nggallery'" )) {
       
 		$sql = "CREATE TABLE " . $nggallery . " (
 		gid BIGINT(20) NOT NULL AUTO_INCREMENT ,
 		name VARCHAR(255) NOT NULL ,
+        slug VARCHAR(255) NOT NULL ,
 		path MEDIUMTEXT NULL ,
 		title MEDIUMTEXT NULL ,
 		galdesc MEDIUMTEXT NULL ,
@@ -87,12 +90,13 @@ function nggallery_install () {
 	
       dbDelta($sql);
    }
-
-	if($wpdb->get_var("show tables like '$nggalbum'") != $nggalbum) {
+    
+	if( !$wpdb->get_var( "SHOW TABLES LIKE '$nggalbum'" )) {
       
 		$sql = "CREATE TABLE " . $nggalbum . " (
 		id BIGINT(20) NOT NULL AUTO_INCREMENT ,
 		name VARCHAR(255) NOT NULL ,
+        slug VARCHAR(255) NOT NULL ,
 		previewpic BIGINT(20) DEFAULT '0' NOT NULL ,
 		albumdesc MEDIUMTEXT NULL ,
 		sortorder LONGTEXT NOT NULL,
@@ -104,7 +108,7 @@ function nggallery_install () {
     }
 
 	// check one table again, to be sure
-	if($wpdb->get_var("show tables like '$nggpictures'")!= $nggpictures) {
+	if( !$wpdb->get_var( "SHOW TABLES LIKE '$nggpictures'" ) ) {
 		update_option( "ngg_init_check", __('NextGEN Gallery : Tables could not created, please check your database settings',"nggallery") );
 		return;
 	}

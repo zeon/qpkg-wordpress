@@ -36,7 +36,7 @@ $thumb->resize(350,350);
 $resizedPreviewInfo = $thumb->newDimensions;
 $thumb->destruct();
 
-$preview_image		= site_url() . '/' . 'index.php?callback=image&amp;pid=' . $picture->pid . '&amp;width=350&amp;height=350';
+$preview_image		= home_url() . '/' . 'index.php?callback=image&amp;pid=' . $picture->pid . '&amp;width=350&amp;height=350';
 
 ?>
 

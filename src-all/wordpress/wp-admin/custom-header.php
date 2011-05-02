@@ -456,7 +456,7 @@ class Custom_Image_Header {
 	<?php } ?>
 </td>
 </tr>
-
+<?php if ( current_theme_supports( 'custom-header-uploads' ) ) : ?>
 <tr valign="top">
 <th scope="row"><?php _e( 'Upload Image' ); ?></th>
 <td>
@@ -468,11 +468,12 @@ class Custom_Image_Header {
 		<input type="file" id="upload" name="import" />
 		<input type="hidden" name="action" value="save" />
 		<?php wp_nonce_field( 'custom-header-upload', '_wpnonce-custom-header-upload' ) ?>
-		<input type="submit" class="button" value="<?php esc_attr_e( 'Upload' ); ?>" />
+		<?php submit_button( __( 'Upload' ), 'button', 'submit', false ); ?>
 	</p>
 	</form>
 </td>
 </tr>
+<?php endif; ?>
 </tbody>
 </table>
 
@@ -483,7 +484,11 @@ class Custom_Image_Header {
 <tr valign="top">
 <th scope="row"><?php _e( 'Default Images' ); ?></th>
 <td>
+<?php if ( current_theme_supports( 'custom-header-uploads' ) ) : ?>
 	<p><?php _e( 'If you don&lsquo;t want to upload your own image, you can use one of these cool headers.' ) ?></p>
+<?php else: ?>
+	<p><?php _e( 'You can use one of these cool headers.' ) ?>
+<?php endif; ?>
 	<?php
 		$this->show_default_header_selector();
 	?>
@@ -496,7 +501,7 @@ class Custom_Image_Header {
 <th scope="row"><?php _e( 'Remove Image' ); ?></th>
 <td>
 	<p><?php _e( 'This will remove the header image. You will not be able to restore any customizations.' ) ?></p>
-	<input type="submit" class="button" name="removeheader" value="<?php esc_attr_e( 'Remove Header Image' ); ?>" />
+	<?php submit_button( __( 'Remove Header Image' ), 'button', 'removeheader', false ); ?>
 </td>
 </tr>
 	<?php endif;
@@ -506,7 +511,7 @@ class Custom_Image_Header {
 <th scope="row"><?php _e( 'Reset Image' ); ?></th>
 <td>
 	<p><?php _e( 'This will restore the original header image. You will not be able to restore any customizations.' ) ?></p>
-	<input type="submit" class="button" name="resetheader" value="<?php esc_attr_e( 'Restore Original Header Image' ); ?>" />
+	<?php submit_button( __( 'Restore Original Header Image' ), 'button', 'resetheader', false ); ?>
 </td>
 </tr>
 	<?php endif; ?>
@@ -545,7 +550,7 @@ class Custom_Image_Header {
 <th scope="row"><?php _e('Reset Text Color'); ?></th>
 <td>
 	<p><?php _e( 'This will restore the original header text. You will not be able to restore any customizations.' ) ?></p>
-	<input type="submit" class="button" name="resettext" value="<?php esc_attr_e( 'Restore Original Header Text' ); ?>" />
+	<?php submit_button( __( 'Restore Original Header Text' ), 'button', 'resettext', false ); ?>
 </td>
 </tr>
 	<?php } ?>
@@ -554,8 +559,11 @@ class Custom_Image_Header {
 </table>
 	<?php endif;
 
+do_action( 'custom_header_options' );
+
 wp_nonce_field( 'custom-header-options', '_wpnonce-custom-header-options' ); ?>
-<p class="submit"><input type="submit" class="button-primary" name="save-header-options" value="<?php esc_attr_e( 'Save Changes' ); ?>" /></p>
+
+<?php submit_button( null, 'primary', 'save-header-options' ); ?>
 </form>
 </div>
 
@@ -568,6 +576,9 @@ wp_nonce_field( 'custom-header-options', '_wpnonce-custom-header-options' ); ?>
 	 */
 	function step_2() {
 		check_admin_referer('custom-header-upload', '_wpnonce-custom-header-upload');
+		if ( ! current_theme_supports( 'custom-header-uploads' ) )
+			wp_die( 'Cheatin&#8217; uh?' );
+
 		$overrides = array('test_form' => false);
 		$file = wp_handle_upload($_FILES['import'], $overrides);
 
@@ -626,7 +637,6 @@ wp_nonce_field( 'custom-header-options', '_wpnonce-custom-header-options' ); ?>
 		<img src="<?php echo esc_url( $url ); ?>" id="upload" width="<?php echo $width; ?>" height="<?php echo $height; ?>" />
 	</div>
 
-	<p class="submit">
 	<input type="hidden" name="x1" id="x1" value="0"/>
 	<input type="hidden" name="y1" id="y1" value="0"/>
 	<input type="hidden" name="width" id="width" value="<?php echo esc_attr( $width ); ?>"/>
@@ -634,7 +644,8 @@ wp_nonce_field( 'custom-header-options', '_wpnonce-custom-header-options' ); ?>
 	<input type="hidden" name="attachment_id" id="attachment_id" value="<?php echo esc_attr( $id ); ?>" />
 	<input type="hidden" name="oitar" id="oitar" value="<?php echo esc_attr( $oitar ); ?>" />
 	<?php wp_nonce_field( 'custom-header-crop-image' ) ?>
-	<input type="submit" class="button-primary" value="<?php esc_attr_e( 'Crop and Publish' ); ?>" />
+
+	<?php submit_button( __( 'Crop and Publish' ) ); ?>
 	</p>
 </form>
 </div>
@@ -648,6 +659,9 @@ wp_nonce_field( 'custom-header-options', '_wpnonce-custom-header-options' ); ?>
 	 */
 	function step_3() {
 		check_admin_referer('custom-header-crop-image');
+		if ( ! current_theme_supports( 'custom-header-uploads' ) )
+			wp_die( 'Cheatin&#8217; uh?' );
+
 		if ( $_POST['oitar'] > 1 ) {
 			$_POST['x1'] = $_POST['x1'] * $_POST['oitar'];
 			$_POST['y1'] = $_POST['y1'] * $_POST['oitar'];

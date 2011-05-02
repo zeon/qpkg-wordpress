@@ -18,27 +18,16 @@
 	white-space: normal;
 }
 
-/* No drag and drop on ms-sites.php */
-.ms-sites-php .postbox h3 {
-	cursor: auto;
-}
-
-.ms-sites-php .postbox .description {
-	margin:10px 0 0px;
-	padding:0px 10px 10px;
-	border-bottom:1px solid #DFDFDF;
-}
-
 /* Background Color for Site Status */
-tr.site-deleted {
+.site-deleted {
 	background: #ff8573;
 }
-tr.site-spammed {
-	background: #faa;
+.site-spammed {
+	background: #faafaa;
 }
-tr.site-archived {
-	background:#ffebe8;
+.site-archived {
+	background: #ffebe8;
 }
-tr.site-mature {
+.site-mature {
 	background: #fecac2;
 }

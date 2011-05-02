@@ -1,6 +1,6 @@
 /*
  * Progress bar Plugin for NextGEN gallery
- * Version:  1.0.0
+ * Version:  2.0.1
  * Author : Alex Rabe
  */ 
 (function($) {
@@ -16,14 +16,20 @@
 		init: function( s ) {
 			
 			s = this.settings = $.extend( {}, this.settings, {}, s || {} );
-			
-			div = $('#' + s.id + '_container');
+            div = $('#' + s.id + '_dialog');
 			width = Math.round( ( 100 / s.maxStep ) * 100 ) /100;			
-			
-			if ( div.find("#" + s.id).length == 0) {
-				if (s.header.length > 0)
-					div.append('<h2>'+ s.header +'</h2>');
-				div.append('<div id="' + s.id + '" class="progressborder"><div class="' + s.id + '"><span>0%</span></div></div>');
+			// add the initial progressbar
+			if ( $( "#" + s.id + "_dialog" ).length == 0) {
+				s.header = (s.header.length > 0) ? s.header : '' ;
+				$("body").append('<div id="' + s.id + '_dialog"><div id="' + s.id + '" class="progressborder"><div class="' + s.id + '"><span>0%</span></div></div></div>');
+   	            $('html,body').scrollTop(0); // works only in IE, FF
+                // we open the dialog
+                $( "#" + s.id + "_dialog" ).dialog({
+            		width: 640,
+                    resizable : true,
+            		modal: true,
+                    title: s.header       
+            	});
 			}
 		},
 		
@@ -45,6 +51,8 @@
 				$("#" + s.id + "_note").append("<li>" + note + "<div class='show_details'><span>[more]</span><br />" + detail + "</div></li>");
 			else
 				$("#" + s.id + "_note").append("<li>" + note + "</li>");
+            // increase the height to show the note    
+            div.dialog("option", "height", 220);
 		},
 		
 		increase: function( step ) {
@@ -61,19 +69,23 @@
 			$("#" + s.id + " span").html( '100%' );
 			// in the case we add a note , we should wait for a click
 			if (s.wait) {
-				setTimeout(function() {
-					$("#" + s.id).hide("slow");
-				}, 2000); 
+                $("#" + s.id).delay(1000).hide("slow");
 				div.click(function () {
-					jQuery('.nggform').prepend("<input type=\"hidden\" name=\"ajax_callback\" value=\"0\">");
-	      			jQuery('.nggform').submit();
+				    $("#" + s.id + "_dialog").dialog("destroy");
+                    $("#" + s.id + "_dialog").remove();
+                    // In the casee it's the manage page, force a submit
+					$('.nggform').prepend("<input type=\"hidden\" name=\"ajax_callback\" value=\"0\">");
+	      			$('.nggform').submit();
 	    		});
 	    	} else {
-	    		//div.hide("slow");
-	    		jQuery("#" + s.id).hide("slow");
-				jQuery("#" + s.id + "_container h2").hide("slow");
-				jQuery('.nggform').prepend("<input type=\"hidden\" name=\"ajax_callback\" value=\"1\">");
-	    		jQuery('.nggform').submit();
+
+                window.setTimeout(function() {
+                    $("#" + s.id + "_dialog" ).delay(4000).dialog("destroy");
+                    $("#" + s.id + "_dialog").remove();
+    				// In the casee it's the manage page, force a submit
+                    $('.nggform').prepend("<input type=\"hidden\" name=\"ajax_callback\" value=\"1\">");
+                    $('.nggform').delay(4000).submit();
+                }, 1000);
 	    	}
 		}
 	};

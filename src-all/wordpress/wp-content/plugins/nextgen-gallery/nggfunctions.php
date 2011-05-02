@@ -39,7 +39,7 @@ function nggShowSlideshow($galleryID, $width, $height) {
     // init the flash output
     $swfobject = new swfobject( $ngg_options['irURL'] , 'so' . $galleryID, $width, $height, '7.0.0', 'false');
 
-    $swfobject->message = '<p>'. __('The <a href="http://www.macromedia.com/go/getflashplayer">Flash Player</a> and <a href="http://www.mozilla.com/firefox/">a browser with Javascript support</a> are needed..', 'nggallery').'</p>';
+    $swfobject->message = '<p>'. __('The <a href="http://www.macromedia.com/go/getflashplayer">Flash Player</a> and <a href="http://www.mozilla.com/firefox/">a browser with Javascript support</a> are needed.', 'nggallery').'</p>';
     $swfobject->add_params('wmode', 'opaque');
     $swfobject->add_params('allowfullscreen', 'true');
     $swfobject->add_params('bgcolor', $ngg_options['irScreencolor'], 'FFFFFF', 'string', '#');
@@ -47,7 +47,7 @@ function nggShowSlideshow($galleryID, $width, $height) {
     $swfobject->add_attributes('name', 'so' . $galleryID);
 
     // adding the flash parameter   
-    $swfobject->add_flashvars( 'file', urlencode ( trailingslashit ( site_url() ) . 'index.php?callback=imagerotator&gid=' . $galleryID ) );
+    $swfobject->add_flashvars( 'file', urlencode ( trailingslashit ( home_url() ) . 'index.php?callback=imagerotator&gid=' . $galleryID ) );
     $swfobject->add_flashvars( 'shuffle', $ngg_options['irShuffle'], 'true', 'bool');
     // option has oposite meaning : true should switch to next image
     $swfobject->add_flashvars( 'linkfromdisplay', !$ngg_options['irLinkfromdisplay'], 'false', 'bool');
@@ -114,21 +114,24 @@ function nggShow_JS_Slideshow($galleryID, $width, $height, $class = 'ngg-slidesh
     
     //filter to resize images for mobile browser
     list($width, $height) = apply_filters('ngg_slideshow_size', array( $width, $height ) );
-        
+    
+    $width  = (int) $width;
+    $height = (int) $height;
+            
     $out  = '<div id="' . $anchor . '" class="' . $class . '" style="height:' . $height . 'px;width:' . $width . 'px;">';
     $out .= "\n". '<div id="' . $anchor . '-loader" class="ngg-slideshow-loader" style="height:' . $height . 'px;width:' . $width . 'px;">';
-    $out .= "\n". '<img src="'. NGGALLERY_URLPATH . 'images/loader.gif " alt="" />';
+    $out .= "\n". '<img src="'. NGGALLERY_URLPATH . 'images/loader.gif" alt="" />';
     $out .= "\n". '</div>';
     $out .= '</div>'."\n";
     $out .= "\n".'<script type="text/javascript" defer="defer">';
-    $out .= "\n" . 'jQuery("#' . $anchor . '").nggSlideshow( {' .
+    $out .= "\n" . 'jQuery(document).ready(function(){ ' . "\n" . 'jQuery("#' . $anchor . '").nggSlideshow( {' .
             'id: '      . $galleryID    . ',' . 
             'fx:"'      . $ngg_options['slideFx'] . '",' .
             'width:'    . $width        . ',' . 
             'height:'   . $height       . ',' .
-            'domain: "' . trailingslashit ( site_url() ) . '",' .
+            'domain: "' . trailingslashit ( home_url() ) . '",' .
             'timeout:'  . $ngg_options['irRotatetime'] * 1000 .
-            '});';
+            '});' . "\n" . '});';
     $out .= "\n".'</script>';
 
     return $out;
@@ -406,10 +409,11 @@ function nggShowAlbum($albumID, $template = 'extend') {
     if (!empty( $gallery ))  {
         
         // subalbum support only one instance, you can't use more of them in one post
+        //TODO: causes problems with SFC plugin, due to a second filter callback
         if ( isset($GLOBALS['subalbum']) || isset($GLOBALS['nggShowGallery']) )
                 return;
                 
-        // if gallery is is submit , then show the gallery instead 
+        // if gallery is submit , then show the gallery instead 
         $out = nggShowGallery( intval($gallery) );
         $GLOBALS['nggShowGallery'] = true;
         
@@ -774,7 +778,7 @@ function nggSinglePicture($imageID, $width = 250, $height = 250, $mode = '', $fl
     
     // if we didn't use a cached image then we take the on-the-fly mode 
     if (!$picture->thumbnailURL) 
-        $picture->thumbnailURL = site_url() . '/' . 'index.php?callback=image&amp;pid=' . $imageID . '&amp;width=' . $width . '&amp;height=' . $height . '&amp;mode=' . $mode;
+        $picture->thumbnailURL = home_url() . '/' . 'index.php?callback=image&amp;pid=' . $imageID . '&amp;width=' . $width . '&amp;height=' . $height . '&amp;mode=' . $mode;
 
     // add more variables for render output
     $picture->imageURL = ( empty($link) ) ? $picture->imageURL : $link;
@@ -1061,7 +1065,7 @@ function nggShowRandomRecent($type, $maxImages, $template = '', $galleryId = 0) 
     if ( is_array($picturelist) )
         $out = nggCreateGallery($picturelist, false, $template);
 
-    $out = apply_filters('ngg_show_images_content', $out, $taglist);
+    $out = apply_filters('ngg_show_images_content', $out, $picturelist);
     
     return $out;
 }

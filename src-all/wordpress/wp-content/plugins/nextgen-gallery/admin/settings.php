@@ -75,7 +75,8 @@ class nggOptions {
     	}		
     	
     	if ( isset($_POST['clearcache']) ) {
-    		
+    		check_admin_referer('ngg_settings');
+            
     		$path = WINABSPATH . $ngg->options['gallerypath'] . 'cache/';
     		
     		if (is_dir($path))
@@ -89,6 +90,12 @@ class nggOptions {
     			}
     
     		nggGallery::show_message(__('Cache cleared','nggallery'));
+    	}
+
+    	if ( isset($_POST['createslugs']) ) {
+    		check_admin_referer('ngg_settings');
+            include_once (dirname (__FILE__) . '/upgrade.php');
+            ngg_rebuild_unique_slugs::start_rebuild();
     	}
         
         do_action( 'ngg_update_options_page' );
@@ -108,6 +115,7 @@ class nggOptions {
 	?>
 	<script type="text/javascript">
 		jQuery(document).ready(function(){
+		    jQuery('html,body').scrollTop(0);
 			jQuery("a.switch-expert").hide();
             /*
             jQuery(".expert").hide();
@@ -117,6 +125,7 @@ class nggOptions {
 			});
             */
 			jQuery('#slider').tabs({ fxFade: true, fxSpeed: 'fast' });
+            /*
 			jQuery('.picker').ColorPicker({
 				onSubmit: function(hsb, hex, rgb, el) {
 					jQuery(el).val(hex);
@@ -129,6 +138,7 @@ class nggOptions {
 			.bind('keyup', function(){
 				jQuery(this).ColorPickerSetColor(this.value);
 			});
+            */
 		});
 	
 		function insertcode(value) {
@@ -218,7 +228,7 @@ class nggOptions {
     ?>
         <!-- General Options -->
 		<h2><?php _e('General Options','nggallery'); ?></h2>
-		<form name="generaloptions" method="post">
+		<form name="generaloptions" method="post" action="<?php echo $this->filepath; ?>">
 		<?php wp_nonce_field('ngg_settings') ?>
 		<input type="hidden" name="page_options" value="gallerypath,deleteImg,useMediaRSS,usePicLens,usePermalinks,graphicLibrary,imageMagickDir,activateTags,appendType,maxImages" />
 			<table class="form-table ngg-options">
@@ -238,7 +248,12 @@ class nggOptions {
 					<?php _e('When you activate this option, you need to update your permalink structure one time.','nggallery'); ?></td>
 				</tr>
 				<tr class="expert">
-					<th valign="top"><?php _e('Select graphic library','nggallery'); ?>:</th>
+					<th valign="top"><?php _e('Create new URL friendly image slugs','nggallery'); ?></th>
+					<td><input type="submit" name="createslugs" class="button-secondary"  value="<?php _e('Proceed now','nggallery') ;?> &raquo;"/>
+                    <?php _e('Currently not used, prepare database for upcoming version','nggallery'); ?></td>
+				</tr>                
+				<tr class="expert">
+					<th valign="top"><?php _e('Select graphic library','nggallery'); ?></th>
 					<td><label><input name="graphicLibrary" type="radio" value="gd" <?php checked('gd', $ngg->options['graphicLibrary']); ?> /> <?php _e('GD Library', 'nggallery') ;?></label><br />
 					<label><input name="graphicLibrary" type="radio" value="im" <?php checked('im', $ngg->options['graphicLibrary']); ?> /> <?php _e('ImageMagick (Experimental). Path to the library :', 'nggallery') ;?>&nbsp;
 					<input <?php if (is_multisite()) echo 'readonly = "readonly"'; ?> type="text" size="35" name="imageMagickDir" value="<?php echo $ngg->options['imageMagickDir']; ?>" /></label>
@@ -258,19 +273,19 @@ class nggOptions {
 			<h3 class="expert"><?php _e('Tags / Categories','nggallery'); ?></h3>
 			<table class="expert form-table ngg-options">
 				<tr>
-					<th valign="top"><?php _e('Activate related images','nggallery'); ?>:</th>
+					<th valign="top"><?php _e('Activate related images','nggallery'); ?></th>
 					<td><input name="activateTags" type="checkbox" value="1" <?php checked('1', $ngg->options['activateTags']); ?> />
 					<?php _e('This option will append related images to every post','nggallery'); ?>
 					</td>
 				</tr>
 				<tr>
-					<th valign="top"><?php _e('Match with','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Match with','nggallery'); ?></th>
 					<td><label><input name="appendType" type="radio" value="category" <?php checked('category', $ngg->options['appendType']); ?> /> <?php _e('Categories', 'nggallery') ;?></label><br />
 					<label><input name="appendType" type="radio" value="tags" <?php checked('tags', $ngg->options['appendType']); ?> /> <?php _e('Tags', 'nggallery') ;?></label>
 					</td>
 				</tr>
 				<tr>
-					<th valign="top"><?php _e('Max. number of images','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Max. number of images','nggallery'); ?></th>
 					<td><input type="text" name="maxImages" value="<?php echo $ngg->options['maxImages']; ?>" size="3" maxlength="3" />
 					<span class="setting-description"><?php _e('0 will show all images','nggallery'); ?></span>
 					</td>
@@ -371,59 +386,59 @@ class nggOptions {
 		<input type="hidden" name="page_options" value="galNoPages,galImages,galColumns,galShowSlide,galTextSlide,galTextGallery,galShowOrder,galImgBrowser,galSort,galSortDir,galHiddenImg,galAjaxNav" />
 			<table class="form-table ngg-options">
 				<tr class="expert" >
-					<th valign="top"><?php _e('Deactivate gallery page link','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Deactivate gallery page link','nggallery') ?></th>
 					<td><input name="galNoPages" type="checkbox" value="1" <?php checked('1', $ngg->options['galNoPages']); ?> />
 					<?php _e('The album will not link to a gallery subpage. The gallery is shown on the same page.','nggallery') ?>
 					</td>
 				</tr>
 				<tr>
-					<th valign="top"><?php _e('Number of images per page','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Number of images per page','nggallery') ?></th>
 					<td><input type="text" name="galImages" value="<?php echo $ngg->options['galImages']; ?>" size="3" maxlength="3" />
 					<span class="setting-description"><?php _e('0 will disable pagination, all images on one page','nggallery') ?></span>
 					</td>
 				</tr>
 				<tr>
-					<th valign="top"><?php _e('Number of columns','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Number of columns','nggallery'); ?></th>
 					<td><input type="text" name="galColumns" value="<?php echo $ngg->options['galColumns']; ?>" size="3" maxlength="3" />
 					<span class="setting-description"><?php _e('0 will display as much as possible based on the width of your theme. Setting normally only required for captions below the images','nggallery') ?></span>
 					</td>
 				</tr>
 				<tr>
-					<th valign="top"><?php _e('Integrate slideshow','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Integrate slideshow','nggallery'); ?></th>
 					<td><input name="galShowSlide" type="checkbox" value="1" <?php checked('1', $ngg->options['galShowSlide']); ?> />
 						<input type="text" name="galTextSlide" value="<?php echo $ngg->options['galTextSlide'] ?>" size="20" />
 						<input type="text" name="galTextGallery" value="<?php echo $ngg->options['galTextGallery'] ?>" size="20" />
 					</td>
 				</tr>
 				<tr class="expert" >
-					<th valign="top"><?php _e('Show first','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Show first','nggallery'); ?></th>
 					<td><label><input name="galShowOrder" type="radio" value="gallery" <?php checked('gallery', $ngg->options['galShowOrder']); ?> /> <?php _e('Thumbnails', 'nggallery') ;?></label><br />
 					<label><input name="galShowOrder" type="radio" value="slide" <?php checked('slide', $ngg->options['galShowOrder']); ?> /> <?php _e('Slideshow', 'nggallery') ;?></label>
 					</td>
 				</tr>
 				<tr class="expert" >
-					<th valign="top"><?php _e('Show ImageBrowser','nggallery'); ?>:</th>
+					<th valign="top"><?php _e('Show ImageBrowser','nggallery'); ?></th>
 					<td><input name="galImgBrowser" type="checkbox" value="1" <?php checked('1', $ngg->options['galImgBrowser']); ?> />
 					<?php _e('The gallery will open the ImageBrowser instead the effect.', 'nggallery'); ?>
 					</td>
 				</tr>
 				<tr class="expert" >
-					<th valign="top"><?php _e('Add hidden images','nggallery'); ?>:</th>
+					<th valign="top"><?php _e('Add hidden images','nggallery'); ?></th>
 					<td><input name="galHiddenImg" type="checkbox" value="1" <?php checked('1', $ngg->options['galHiddenImg']); ?> />
-					<?php _e('If pagination is used, this option will still show all images in the modal window (Thickbox, Lightbox etc.). Note : This increase the page load','nggallery'); ?>
+					<?php _e('If pagination is used, this option will still show all images in the modal window (Thickbox, Lightbox etc.). Note : This increases the page load','nggallery'); ?>
 					</td>
 				</tr>
 				<tr class="expert" >
-					<th valign="top"><?php _e('Enable AJAX pagination','nggallery'); ?>:</th>
+					<th valign="top"><?php _e('Enable AJAX pagination','nggallery'); ?></th>
 					<td><input name="galAjaxNav" type="checkbox" value="1" <?php checked('1', $ngg->options['galAjaxNav']); ?> />
-					<?php _e('Browse images without reload the page. Note : Work only in combination with Shutter effect','nggallery'); ?>
+					<?php _e('Browse images without reload the page. Note : Works only in combination with Shutter effect','nggallery'); ?>
 					</td>
 				</tr>
 			</table>
 			<h3 class="expert" ><?php _e('Sort options','nggallery') ?></h3>
 			<table class="expert form-table ngg-options">
 				<tr>
-					<th valign="top"><?php _e('Sort thumbnails','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Sort thumbnails','nggallery') ?></th>
 					<td>
 					<label><input name="galSort" type="radio" value="sortorder" <?php checked('sortorder', $ngg->options['galSort']); ?> /> <?php _e('Custom order', 'nggallery') ;?></label><br />
 					<label><input name="galSort" type="radio" value="pid" <?php checked('pid', $ngg->options['galSort']); ?> /> <?php _e('Image ID', 'nggallery') ;?></label><br />
@@ -433,7 +448,7 @@ class nggOptions {
 					</td>
 				</tr>
 				<tr>
-					<th valign="top"><?php _e('Sort direction','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Sort direction','nggallery') ?></th>
 					<td><label><input name="galSortDir" type="radio" value="ASC" <?php checked('ASC', $ngg->options['galSortDir']); ?> /> <?php _e('Ascending', 'nggallery') ;?></label><br />
 					<label><input name="galSortDir" type="radio" value="DESC" <?php checked('DESC', $ngg->options['galSortDir']); ?> /> <?php _e('Descending', 'nggallery') ;?></label>
 					</td>
@@ -457,7 +472,7 @@ class nggOptions {
 		<?php _e('With the placeholder','nggallery'); ?><strong> %GALLERY_NAME% </strong> <?php _e('you can activate a navigation through the images (depend on the effect). Change the code line only , when you use a different thumbnail effect or you know what you do.','nggallery'); ?></p>
 			<table class="form-table ngg-options">
 				<tr valign="top">
-					<th><?php _e('JavaScript Thumbnail effect','nggallery') ?>:</th>
+					<th><?php _e('JavaScript Thumbnail effect','nggallery') ?></th>
 					<td>
 					<select size="1" id="thumbEffect" name="thumbEffect" onchange="insertcode(this.value)">
 						<option value="none" <?php selected('none', $ngg->options['thumbEffect']); ?> ><?php _e('None', 'nggallery') ;?></option>
@@ -470,7 +485,7 @@ class nggOptions {
 					</td>
 				</tr>
 				<tr class="expert" valign="top">
-					<th><?php _e('Link Code line','nggallery') ?> :</th>
+					<th><?php _e('Link Code line','nggallery') ?></th>
 					<td><textarea id="thumbCode" name="thumbCode" cols="50" rows="5"><?php echo htmlspecialchars(stripslashes($ngg->options['thumbCode'])); ?></textarea></td>
 				</tr>
 			</table>
@@ -487,7 +502,7 @@ class nggOptions {
         
         // take the first image as sample
         $imageID  = $wpdb->get_var("SELECT MIN(pid) FROM $wpdb->nggpictures");
-        $imageURL = ($imageID) ? $imageURL = '<img src="'. site_url() . '/' . 'index.php?callback=image&amp;pid=' . intval ($imageID) . '&amp;mode=watermark&amp;width=300&amp;height=250" />' : '';
+        $imageURL = ($imageID) ? $imageURL = '<img src="'. home_url() . '/' . 'index.php?callback=image&amp;pid=' . intval ($imageID) . '&amp;mode=watermark&amp;width=300&amp;height=250" />' : '';
 
 	?>
 	<!-- Watermark settings -->
@@ -543,7 +558,7 @@ class nggOptions {
 			<h3><label><input type="radio" name="wmType" value="image" <?php checked('image', $ngg->options['wmType']); ?> /> <?php _e('Use image as watermark','nggallery') ?></label></h3>
 			<table class="wm-table form-table">
 				<tr>
-					<th><?php _e('URL to file','nggallery') ?> :</th>
+					<th><?php _e('URL to file','nggallery') ?></th>
 					<td><input type="text" size="40" name="wmPath" value="<?php echo $ngg->options['wmPath']; ?>" /><br />
 					<?php if(!ini_get('allow_url_fopen')) _e('The accessing of URL files is disabled at your server (allow_url_fopen)','nggallery') ?> </td>
 				</tr>
@@ -551,7 +566,7 @@ class nggOptions {
 			<h3><label><input type="radio" name="wmType" value="text" <?php checked('text', $ngg->options['wmType']); ?> /> <?php _e('Use text as watermark','nggallery') ?></label></h3>
 			<table class="wm-table form-table">	
 				<tr>
-					<th><?php _e('Font','nggallery') ?>:</th>
+					<th><?php _e('Font','nggallery') ?></th>
 					<td><select name="wmFont" size="1">	<?php 
 							$fontlist = ngg_get_TTFfont();
 							foreach ( $fontlist as $fontfile ) {
@@ -567,20 +582,20 @@ class nggOptions {
 					</td>
 				</tr>
 				<tr>
-					<th><?php _e('Size','nggallery') ?>:</th>
+					<th><?php _e('Size','nggallery') ?></th>
 					<td><input type="text" name="wmSize" value="<?php echo $ngg->options['wmSize']; ?>" size="4" maxlength="2" /> px</td>
 				</tr>
 				<tr>
-					<th><?php _e('Color','nggallery') ?>:</th>
+					<th><?php _e('Color','nggallery') ?></th>
 					<td><input class="picker" type="text" size="6" maxlength="6" id="wmColor" name="wmColor" onchange="setcolor('#previewText', this.value)" value="<?php echo $ngg->options['wmColor'] ?>" />
 					<input type="text" size="1" readonly="readonly" id="previewText" style="background-color: #<?php echo $ngg->options['wmColor']; ?>" /> <?php _e('(hex w/o #)','nggallery') ?></td>
 				</tr>
 				<tr>
-					<th valign="top"><?php _e('Text','nggallery') ?>:</th>
+					<th valign="top"><?php _e('Text','nggallery') ?></th>
 					<td><textarea name="wmText" cols="40" rows="4"><?php echo $ngg->options['wmText'] ?></textarea></td>
 				</tr>
 				<tr>
-					<th><?php _e('Opaque','nggallery') ?>:</th>
+					<th><?php _e('Opaque','nggallery') ?></th>
 					<td><input type="text" name="wmOpaque" value="<?php echo $ngg->options['wmOpaque'] ?>" size="3" maxlength="3" /> % </td>
 				</tr>
 			</table>
@@ -601,16 +616,16 @@ class nggOptions {
     	<h2><?php _e('Slideshow','nggallery'); ?></h2>
 			<table class="form-table ngg-options">
 				<tr>
-					<th><?php _e('Default size (W x H)','nggallery') ?>:</th>
+					<th><?php _e('Default size (W x H)','nggallery') ?></th>
 					<td><input type="text" size="3" maxlength="4" name="irWidth" value="<?php echo $ngg->options['irWidth']; ?>" /> x
 					<input type="text" size="3" maxlength="4" name="irHeight" value="<?php echo $ngg->options['irHeight']; ?>" /></td>
 				</tr>
 				<tr>					
-					<th><?php _e('Duration time','nggallery') ?>:</th>
+					<th><?php _e('Duration time','nggallery') ?></th>
 					<td><input type="text" size="3" maxlength="3" name="irRotatetime" value="<?php echo $ngg->options['irRotatetime'] ?>" /> <?php _e('sec.', 'nggallery') ;?></td>
 				</tr>
 				<tr>					
-				    <th><?php _e('Transition / Fade effect','nggallery') ?>:</th>
+				    <th><?php _e('Transition / Fade effect','nggallery') ?></th>
 					<td>
 					<select size="1" name="slideFx">
 						<option value="fade" <?php selected('fade', $ngg->options['slideFx']); ?> ><?php _e('fade', 'nggallery') ;?></option>
@@ -640,41 +655,41 @@ class nggOptions {
             	<?php }?>
     			<table class="expert form-table ngg-options">
 				<tr>
-					<th><?php _e('Enable flash slideshow','nggallery') ?>:</th>
+					<th><?php _e('Enable flash slideshow','nggallery') ?></th>
 					<td><input name="enableIR" type="checkbox" value="1" <?php checked('1', $ngg->options['enableIR']); ?> />
-                    <span class="setting-description"><?php _e('Integrate the flash based sildeshow for all flash supported devices','nggallery') ?></span></td>
+                    <span class="setting-description"><?php _e('Integrate the flash based slideshow for all flash supported devices','nggallery') ?></span></td>
 				</tr>
 				<tr>
-					<th><?php _e('Path to the Imagerotator (URL)','nggallery') ?>:</th>
+					<th><?php _e('Path to the Imagerotator (URL)','nggallery') ?></th>
 					<td>
 						<input type="text" size="50" id="irURL" name="irURL" value="<?php echo $ngg->options['irURL']; ?>" />
 						<input type="submit" name="irDetect" class="button-secondary"  value="<?php _e('Search now','nggallery') ;?> &raquo;"/>
-						<br /><span class="setting-description"><?php _e('Press the button to search automatic for the imagerotator, if you uploaded it to wp-content/uploads or a subfolder','nggallery') ?></span>
+						<br /><span class="setting-description"><?php _e('Press the button to search automatically for the imagerotator, if you uploaded it to wp-content/uploads or a subfolder','nggallery') ?></span>
 					</td>
 				</tr>					
 				<tr>
-					<th><?php _e('Shuffle mode','nggallery') ?>:</th>
+					<th><?php _e('Shuffle mode','nggallery') ?></th>
 					<td><input name="irShuffle" type="checkbox" value="1" <?php checked('1', $ngg->options['irShuffle']); ?> /></td>
 				</tr>
 				<tr class="expert">
-					<th><?php _e('Show next image on click','nggallery') ?>:</th>
+					<th><?php _e('Show next image on click','nggallery') ?></th>
 					<td><input name="irLinkfromdisplay" type="checkbox" value="1" <?php checked('1', $ngg->options['irLinkfromdisplay']); ?> /></td>
 				</tr>					
 				<tr class="expert">
-					<th><?php _e('Show navigation bar','nggallery') ?>:</th>
+					<th><?php _e('Show navigation bar','nggallery') ?></th>
 					<td><input name="irShownavigation" type="checkbox" value="1" <?php checked('1', $ngg->options['irShownavigation']); ?> /></td>
 				</tr>
 				<tr class="expert">
-					<th><?php _e('Show loading icon','nggallery') ?>:</th>
+					<th><?php _e('Show loading icon','nggallery') ?></th>
 					<td><input name="irShowicons" type="checkbox" value="1" <?php checked('1', $ngg->options['irShowicons']); ?> /></td>
 				</tr>
 				<tr class="expert">
-					<th><?php _e('Use watermark logo','nggallery') ?>:</th>
+					<th><?php _e('Use watermark logo','nggallery') ?></th>
 					<td><input name="irWatermark" type="checkbox" value="1" <?php checked('1', $ngg->options['irWatermark']); ?> />
 					<span class="setting-description"><?php _e('You can change the logo at the watermark settings','nggallery') ?></span></td>
 				</tr>
 				<tr class="expert">
-					<th><?php _e('Stretch image','nggallery') ?>:</th>
+					<th><?php _e('Stretch image','nggallery') ?></th>
 					<td>
 					<select size="1" name="irOverstretch">
 						<option value="true" <?php selected('true', $ngg->options['irOverstretch']); ?> ><?php _e('true', 'nggallery') ;?></option>
@@ -685,7 +700,7 @@ class nggOptions {
 					</td>
 				</tr>
 				<tr>					
-					<th><?php _e('Transition / Fade effect','nggallery') ?>:</th>
+					<th><?php _e('Transition / Fade effect','nggallery') ?></th>
 					<td>
 					<select size="1" name="irTransition">
 						<option value="fade" <?php selected('fade', $ngg->options['irTransition']); ?> ><?php _e('fade', 'nggallery') ;?></option>
@@ -702,35 +717,35 @@ class nggOptions {
                     </td>
 				</tr>
 				<tr class="expert">
-					<th><?php _e('Use slow zooming effect','nggallery') ?>:</th>
+					<th><?php _e('Use slow zooming effect','nggallery') ?></th>
 					<td><input name="irKenburns" type="checkbox" value="1" <?php checked('1', $ngg->options['irKenburns']); ?> /></td>
 				</tr>
 				<tr>
-					<th><?php _e('Background Color','nggallery') ?>:</th>
+					<th><?php _e('Background Color','nggallery') ?></th>
 					<td><input class="picker" type="text" size="6" maxlength="6" id="irBackcolor" name="irBackcolor" onchange="setcolor('#previewBack', this.value)" value="<?php echo $ngg->options['irBackcolor'] ?>" />
 					<input type="text" size="1" readonly="readonly" id="previewBack" style="background-color: #<?php echo $ngg->options['irBackcolor'] ?>" /></td>
 				</tr>
 				<tr>					
-					<th><?php _e('Texts / Buttons Color','nggallery') ?>:</th>
+					<th><?php _e('Texts / Buttons Color','nggallery') ?></th>
 					<td><input class="picker" type="text" size="6" maxlength="6" id="irFrontcolor" name="irFrontcolor" onchange="setcolor('#previewFront', this.value)" value="<?php echo $ngg->options['irFrontcolor'] ?>" />
 					<input type="text" size="1" readonly="readonly" id="previewFront" style="background-color: #<?php echo $ngg->options['irFrontcolor'] ?>" /></td>
 				</tr>
 				<tr class="expert">					
-					<th><?php _e('Rollover / Active Color','nggallery') ?>:</th>
+					<th><?php _e('Rollover / Active Color','nggallery') ?></th>
 					<td><input class="picker" type="text" size="6" maxlength="6" id="irLightcolor" name="irLightcolor" onchange="setcolor('#previewLight', this.value)" value="<?php echo $ngg->options['irLightcolor'] ?>" />
 					<input type="text" size="1" readonly="readonly" id="previewLight" style="background-color: #<?php echo $ngg->options['irLightcolor'] ?>" /></td>
 				</tr>
 				<tr class="expert">					
-					<th><?php _e('Screen Color','nggallery') ?>:</th>
+					<th><?php _e('Screen Color','nggallery') ?></th>
 					<td><input class="picker" type="text" size="6" maxlength="6" id="irScreencolor" name="irScreencolor" onchange="setcolor('#previewScreen', this.value)" value="<?php echo $ngg->options['irScreencolor'] ?>" />
 					<input type="text" size="1" readonly="readonly" id="previewScreen" style="background-color: #<?php echo $ngg->options['irScreencolor'] ?>" /></td>
 				</tr>
 				<tr class="expert">					
-					<th><?php _e('Background music (URL)','nggallery') ?>:</th>
+					<th><?php _e('Background music (URL)','nggallery') ?></th>
 					<td><input type="text" size="50" id="irAudio" name="irAudio" value="<?php echo $ngg->options['irAudio'] ?>" /></td>
 				</tr>
 				<tr class="expert">
-					<th ><?php _e('Try XHTML validation (with CDATA)','nggallery') ?>:</th>
+					<th ><?php _e('Try XHTML validation (with CDATA)','nggallery') ?></th>
 					<td><input name="irXHTMLvalid" type="checkbox" value="1" <?php checked('1', $ngg->options['irXHTMLvalid']); ?> />
 					<span class="setting-description"><?php _e('Important : Could causes problem at some browser. Please recheck your page.','nggallery') ?></span></td>
 				</tr>

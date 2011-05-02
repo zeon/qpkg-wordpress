@@ -21,7 +21,7 @@ $timezone_format = _x('Y-m-d G:i:s', 'timezone date format');
  * Display JavaScript on the page.
  *
  * @package WordPress
- * @subpackage General_Settings_Panel
+ * @subpackage General_Settings_Screen
  */
 function add_js() {
 ?>
@@ -30,7 +30,7 @@ function add_js() {
 	jQuery(document).ready(function($){
 		$("input[name='date_format']").click(function(){
 			if ( "date_format_custom_radio" != $(this).attr("id") )
-				$("input[name='date_format_custom']").val( $(this).val() );
+				$("input[name='date_format_custom']").val( $(this).val() ).siblings('.example').text( $(this).siblings('span').text() );
 		});
 		$("input[name='date_format_custom']").focus(function(){
 			$("#date_format_custom_radio").attr("checked", "checked");
@@ -38,17 +38,25 @@ function add_js() {
 
 		$("input[name='time_format']").click(function(){
 			if ( "time_format_custom_radio" != $(this).attr("id") )
-				$("input[name='time_format_custom']").val( $(this).val() );
+				$("input[name='time_format_custom']").val( $(this).val() ).siblings('.example').text( $(this).siblings('span').text() );
 		});
 		$("input[name='time_format_custom']").focus(function(){
 			$("#time_format_custom_radio").attr("checked", "checked");
+		});
+		$("input[name='date_format_custom'], input[name='time_format_custom']").change( function() {
+			var format = $(this);
+			format.siblings('img').css('visibility','visible');
+			$.post(ajaxurl, {
+					action: 'date_format_custom' == format.attr('name') ? 'date_format' : 'time_format',
+					date : format.val()
+				}, function(d) { format.siblings('img').css('visibility','hidden'); format.siblings('.example').text(d); } );
 		});
 	});
 //]]>
 </script>
 <?php
 }
-add_filter('admin_head', 'add_js');
+add_action('admin_head', 'add_js');
 
 add_contextual_help($current_screen,
 	'<p>' . __('The fields on this screen determine some of the basics of your site setup.') . '</p>' .
@@ -114,7 +122,7 @@ include('./admin-header.php');
 <tr valign="top">
 <th scope="row"><label for="new_admin_email"><?php _e('E-mail address') ?> </label></th>
 <td><input name="new_admin_email" type="text" id="new_admin_email" value="<?php form_option('admin_email'); ?>" class="regular-text code" />
-<span class="setting-description"><?php _e('This address is used for admin purposes. If you change this we will send you an e-mail at your new address to confirm it. <strong>The new address will not become active until confirmed.</strong>') ?></span>
+<span class="description"><?php _e('This address is used for admin purposes. If you change this we will send you an e-mail at your new address to confirm it. <strong>The new address will not become active until confirmed.</strong>') ?></span>
 <?php
 $new_admin_email = get_option( 'new_admin_email' );
 if ( $new_admin_email && $new_admin_email != get_option('admin_email') ) : ?>
@@ -265,14 +273,14 @@ if ( empty($tzstring) ) { // Create a UTC+- zone if no timezone string exists
 			echo " checked='checked'";
 			$custom = false;
 		}
-		echo ' /> ' . date_i18n( $format ) . "</label><br />\n";
+		echo ' /> <span>' . date_i18n( $format ) . "</span></label><br />\n";
 	}
 
 	echo '	<label><input type="radio" name="date_format" id="date_format_custom_radio" value="\c\u\s\t\o\m"';
 	checked( $custom );
-	echo '/> ' . __('Custom:') . ' </label><input type="text" name="date_format_custom" value="' . esc_attr( get_option('date_format') ) . '" class="small-text" /> ' . date_i18n( get_option('date_format') ) . "\n";
+	echo '/> ' . __('Custom:') . ' </label><input type="text" name="date_format_custom" value="' . esc_attr( get_option('date_format') ) . '" class="small-text" /> <span class="example"> ' . date_i18n( get_option('date_format') ) . "</span> <img class='ajax-loading' src='" . esc_url( admin_url( 'images/wpspin_light.gif' ) ) . "' />\n";
 
-	echo "\t<p>" . __('<a href="http://codex.wordpress.org/Formatting_Date_and_Time">Documentation on date formatting</a>. Click &#8220;Save Changes&#8221; to update sample output.') . "</p>\n";
+	echo "\t<p>" . __('<a href="http://codex.wordpress.org/Formatting_Date_and_Time">Documentation on date and time formatting</a>.') . "</p>\n";
 ?>
 	</fieldset>
 </td>
@@ -297,12 +305,13 @@ if ( empty($tzstring) ) { // Create a UTC+- zone if no timezone string exists
 			echo " checked='checked'";
 			$custom = false;
 		}
-		echo ' /> ' . date_i18n( $format ) . "</label><br />\n";
+		echo ' /> <span>' . date_i18n( $format ) . "</span></label><br />\n";
 	}
 
 	echo '	<label><input type="radio" name="time_format" id="time_format_custom_radio" value="\c\u\s\t\o\m"';
 	checked( $custom );
-	echo '/> ' . __('Custom:') . ' </label><input type="text" name="time_format_custom" value="' . esc_attr( get_option('time_format') ) . '" class="small-text" /> ' . date_i18n( get_option('time_format') ) . "\n";
+	echo '/> ' . __('Custom:') . ' </label><input type="text" name="time_format_custom" value="' . esc_attr( get_option('time_format') ) . '" class="small-text" /> <span class="example"> ' . date_i18n( get_option('time_format') ) . "</span> <img class='ajax-loading' src='" . esc_url( admin_url( 'images/wpspin_light.gif' ) ) . "' />\n";
+	;
 ?>
 	</fieldset>
 </td>
@@ -338,9 +347,7 @@ endfor;
 
 <?php do_settings_sections('general'); ?>
 
-<p class="submit">
-<input type="submit" name="Submit" class="button-primary" value="<?php esc_attr_e('Save Changes') ?>" />
-</p>
+<?php submit_button(); ?>
 </form>
 
 </div>
